@@ -73,9 +73,9 @@ def generate_launch_description():
             {'cli_port': '/dev/radar_front_CLI'},
             {'data_port': '/dev/radar_front_DATA'},
             {'frame_id': 'front_frame'},
-            {'radar_azimuth_fov', '120'},
-            {'radar_elevation_fov', '30'},
-            {'minimum_range', '0.2'}
+            {'radar_azimuth_fov': '120'},
+            {'radar_elevation_fov': '30'},
+            {'minimum_range': '0.2'}
          ],
         arguments=['--ros-args', '--log-level', 'warn']
     )
@@ -91,9 +91,9 @@ def generate_launch_description():
             {'cli_port': '/dev/radar_rear_CLI'},
             {'data_port': '/dev/radar_rear_DATA'},
             {'frame_id': 'rear_frame'},
-            {'radar_azimuth_fov', '120'},
-            {'radar_elevation_fov', '120'},
-            {'minimum_range', '0.2'}
+            {'radar_azimuth_fov': '120'},
+            {'radar_elevation_fov': '120'},
+            {'minimum_range': '0.2'}
          ],
         arguments=['--ros-args', '--log-level', 'warn']
     )
@@ -109,9 +109,9 @@ def generate_launch_description():
             {'cli_port': '/dev/radar_top_CLI'},
             {'data_port': '/dev/radar_top_DATA'},
             {'frame_id': 'top_frame'},
-            {'radar_azimuth_fov', '120'},
-            {'radar_elevation_fov', '120'},
-            {'minimum_range', '0.2'}
+            {'radar_azimuth_fov': '120'},
+            {'radar_elevation_fov': '120'},
+            {'minimum_range': '0.2'}
             
          ],
         arguments=['--ros-args', '--log-level', 'warn']
@@ -128,9 +128,9 @@ def generate_launch_description():
             {'cli_port': '/dev/radar_bot_CLI'},
             {'data_port': '/dev/radar_bot_DATA'},
             {'frame_id': 'bot_frame'},
-            {'radar_azimuth_fov', '120'},
-            {'radar_elevation_fov', '120'},
-            {'minimum_range', '0.2'}
+            {'radar_azimuth_fov': '120'},
+            {'radar_elevation_fov': '120'},
+            {'minimum_range': '0.2'}
          ],
         arguments=['--ros-args', '--log-level', 'warn']
     )
@@ -146,9 +146,9 @@ def generate_launch_description():
             {'cli_port': '/dev/radar_right_CLI'},
             {'data_port': '/dev/radar_right_DATA'},
             {'frame_id': 'right_frame'},
-            {'radar_azimuth_fov', '120'},
-            {'radar_elevation_fov', '120'},
-            {'minimum_range', '0.2'}
+            {'radar_azimuth_fov': '120'},
+            {'radar_elevation_fov': '120'},
+            {'minimum_range': '0.2'}
          ],
         arguments=['--ros-args', '--log-level', 'warn']
     )
@@ -164,9 +164,9 @@ def generate_launch_description():
             {'cli_port': '/dev/radar_left_CLI'},
             {'data_port': '/dev/radar_left_DATA'},
             {'frame_id': 'left_frame'},
-            {'radar_azimuth_fov', '120'},
-            {'radar_elevation_fov', '120'},
-            {'minimum_range', '0.2'}
+            {'radar_azimuth_fov': '120'},
+            {'radar_elevation_fov': '120'},
+            {'minimum_range': '0.2'}
          ],
         arguments=['--ros-args', '--log-level', 'warn']
     )
