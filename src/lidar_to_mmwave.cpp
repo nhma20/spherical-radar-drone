@@ -25,10 +25,19 @@ class LidarToMmwave : public rclcpp::Node
 //Messages are sent based on a timed callback.
 	public:
 		LidarToMmwave() : Node("lidar_to_mmwave_converter") {
-			lidar_to_mmwave_pcl_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/iwr6843_pcl", 10);
+			this->declare_parameter<std::string>("input_topic", "/dist_sensor/laser_scan");
+			this->get_parameter("input_topic", _input_topic);
+
+			this->declare_parameter<std::string>("output_topic", "/iwr6843_pcl");
+			this->get_parameter("output_topic", _output_topic);
+
+			this->declare_parameter<std::string>("frame_id", "iwr6843_frame");
+			this->get_parameter("frame_id", _frame_id);
+
+			lidar_to_mmwave_pcl_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(_output_topic, 10);
 
 			subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-			"/dist_sensor/laser_scan",	10,
+			_input_topic,	10,
 			std::bind(&LidarToMmwave::lidar_to_mmwave_pcl, this, std::placeholders::_1));
 		}
 
@@ -45,6 +54,11 @@ class LidarToMmwave : public rclcpp::Node
 		std::vector<float> objects_dist;
 		std::vector<float> objects_angl;
 		void lidar_to_mmwave_pcl(const sensor_msgs::msg::LaserScan::SharedPtr _msg);
+
+		std::string _input_topic;
+		std::string _output_topic;
+		std::string _frame_id;
+
 };
 
 
@@ -79,6 +93,9 @@ void LidarToMmwave::lidar_to_mmwave_pcl(const sensor_msgs::msg::LaserScan::Share
 	for(int i = 0; i < num_of_rays-1; i++){
 		if(_msg->ranges[i] > range_min && _msg->ranges[i] < range_max){
 			//std::cout << "Object detected, range: " << _msg->ranges[i] << std::endl;
+			object_center_dists.push_back( _msg->ranges[i] );
+			object_center_angls.push_back( float(i)*angle_increment - angle_max );
+			continue; ////////////////////////////////////////////////// FOR TESTING, REMOVE ////////////////////////////////////////////////////////////////
 			if(grouped_previous == 0){	
 				//std::cout << "First beam of object" << std::endl;
 				group_dist += _msg->ranges[i];
@@ -124,7 +141,7 @@ void LidarToMmwave::lidar_to_mmwave_pcl(const sensor_msgs::msg::LaserScan::Share
 	}
 	seeded = true;
 	// generate noise
-	float amplitude = 0.05;
+	float amplitude = 0.00; //////////////////////////////////// FOR TESTING, MAKE 0.05 /////////////////////////////////////////////////////
 	float noise;
 	// convert to xyz (including noise)
 	for(size_t i = 0; i<objects_dist.size(); i++){
@@ -145,8 +162,7 @@ void LidarToMmwave::lidar_to_mmwave_pcl(const sensor_msgs::msg::LaserScan::Share
 	auto pcl2_msg = sensor_msgs::msg::PointCloud2();
 	pcl2_msg.header = std_msgs::msg::Header();
 	pcl2_msg.header.stamp = this->now();
-	std::string frameID = "iwr6843_frame";
-	pcl2_msg.header.frame_id = frameID;
+	pcl2_msg.header.frame_id = _frame_id;
 	pcl2_msg.fields.resize(3);
 	pcl2_msg.fields[0].name = 'x';
 	pcl2_msg.fields[0].offset = 0;

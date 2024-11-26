@@ -61,45 +61,45 @@ add_executable(drone_frame_broadcaster
 install(TARGETS drone_frame_broadcaster DESTINATION lib/${PROJECT_NAME})
 
 
-add_executable(offboard_control
-  src/offboard_control.cpp
-  src/geometry.cpp
-)
-  ament_target_dependencies(offboard_control
-  rclcpp
-  Eigen3
-  geometry_msgs
-  px4_msgs
-  std_msgs
-  nav_msgs
-  tf2
-  tf2_ros
-  tf2_msgs
-  radar_cable_follower_msgs
-)
-install(TARGETS offboard_control DESTINATION lib/${PROJECT_NAME})
+# add_executable(offboard_control
+#   src/offboard_control.cpp
+#   src/geometry.cpp
+# )
+#   ament_target_dependencies(offboard_control
+#   rclcpp
+#   Eigen3
+#   geometry_msgs
+#   px4_msgs
+#   std_msgs
+#   nav_msgs
+#   tf2
+#   tf2_ros
+#   tf2_msgs
+#   radar_cable_follower_msgs
+# )
+# install(TARGETS offboard_control DESTINATION lib/${PROJECT_NAME})
 
 
-add_executable(radar_pointcloud_filter
-src/radar_pointcloud_filter.cpp
-src/geometry.cpp
-)
-target_link_libraries (radar_pointcloud_filter 
-${PCL_LIBRARIES}
-)
-  ament_target_dependencies(radar_pointcloud_filter
-  rclcpp
-  sensor_msgs
-  px4_msgs
-  tf2
-  tf2_ros
-  tf2_msgs
-  OpenCV
-  cv_bridge
-  radar_cable_follower_msgs
-  PCL
-)
-install(TARGETS radar_pointcloud_filter DESTINATION lib/${PROJECT_NAME})
+# add_executable(radar_pointcloud_filter
+# src/radar_pointcloud_filter.cpp
+# src/geometry.cpp
+# )
+# target_link_libraries (radar_pointcloud_filter 
+# ${PCL_LIBRARIES}
+# )
+#   ament_target_dependencies(radar_pointcloud_filter
+#   rclcpp
+#   sensor_msgs
+#   px4_msgs
+#   tf2
+#   tf2_ros
+#   tf2_msgs
+#   OpenCV
+#   cv_bridge
+#   radar_cable_follower_msgs
+#   PCL
+# )
+# install(TARGETS radar_pointcloud_filter DESTINATION lib/${PROJECT_NAME})
 
 
 

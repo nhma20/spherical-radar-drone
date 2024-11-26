@@ -25,13 +25,18 @@
         <surface>
           <contact>
             <ode>
-              <min_depth>0.001</min_depth>
+              <min_depth>0.000001</min_depth>
               <max_vel>0</max_vel>
+              <kp>1000000000000</kp>
+              <kd>1</kd>
             </ode>
           </contact>
-          <friction>
-            <ode/>
-          </friction>
+          <!--friction>
+            <ode>
+              <mu>0.00001</mu>
+              <mu2>0.00001</mu2>
+            </ode>
+          </friction-->
         </surface>
       </collision>
       <visual name='base_link_inertia_visual'>
@@ -44,19 +49,98 @@
         </geometry>
         <material>
           <script>
-            <name>Gazebo/DarkGrey</name>
+            <name>Gazebo/DarkGray</name>
             <uri>file://media/materials/scripts/gazebo.material</uri>
           </script>
         </material>
       </visual>
       <gravity>1</gravity>
       <velocity_decay/>
-      
+   
+ 
       
 <!-- SENSOR SECTION STARTS HERE --> 
       <!-- 2D Lidar --> 
-      <sensor name="sensor_ray" type="ray">
-        <pose>0 0 -0.05 0 1.571 0</pose>
+      <sensor name="sensor_ray_front" type="ray">
+        <always_on>1</always_on>
+        <visualize>0</visualize>
+        <update_rate>30.0</update_rate>
+        <!-- x y z r p y --> 
+        <pose>0.2 0 0 1.571 0 0</pose>
+        <ray>
+          <scan>
+            <horizontal>
+              <samples>1000</samples>
+              <resolution>1.0</resolution>
+              <min_angle>-1.05</min_angle>
+              <max_angle>1.05</max_angle>
+            </horizontal>
+          </scan>
+          <range>
+            <min>0.1</min>
+            <max>50.0</max>
+            <resolution>0.01</resolution>
+          </range>
+          <!-- No noise, add later in ROS -->
+          <noise>
+        	<type>gaussian</type>
+        	<mean>0.0</mean>
+        	<stddev>0.00</stddev>
+      	  </noise>
+        </ray>
+
+        <plugin name="laser" filename="libgazebo_ros_ray_sensor.so">
+          <!-- Change namespace and output topic so published topic is /dist_sensor/laser_scan -->
+          <ros>
+            <namespace>/dist_sensor</namespace>
+            <argument>~/out:=laser_scan_front</argument>
+          </ros>
+          <output_type>sensor_msgs/LaserScan</output_type>
+        </plugin>
+      </sensor>
+      
+      
+      <sensor name="sensor_ray_rear" type="ray">
+        <visualize>1</visualize>
+        <always_on>1</always_on>
+        <update_rate>30.0</update_rate>
+        <!-- x y z r p y -->
+        <pose>-0.20 0 0 1.570796 0 3.141593</pose>
+        <ray>
+          <scan>
+            <horizontal>
+              <samples>1000</samples>
+              <resolution>1.0</resolution>
+              <min_angle>-1.05</min_angle>
+              <max_angle>1.05</max_angle>
+            </horizontal>
+          </scan>
+          <range>
+            <min>0.1</min>
+            <max>50.0</max>
+            <resolution>0.01</resolution>
+          </range>
+          <!-- No noise, add later in ROS -->
+          <noise>
+        	<type>gaussian</type>
+        	<mean>0.0</mean>
+        	<stddev>0.00</stddev>
+      	  </noise>
+        </ray>
+
+        <plugin name="laser" filename="libgazebo_ros_ray_sensor.so">
+          <!-- Change namespace and output topic so published topic is /dist_sensor/laser_scan -->
+          <ros>
+            <namespace>/dist_sensor</namespace>
+            <argument>~/out:=laser_scan_rear</argument>
+          </ros>
+          <output_type>sensor_msgs/LaserScan</output_type>
+        </plugin>
+      </sensor>
+      
+      
+      <sensor name="sensor_ray_right" type="ray">
+        <pose>0 -0.20 0 -1.570796 0 -1.570796</pose>
         <ray>
           <scan>
             <horizontal>
@@ -87,11 +171,135 @@
           <!-- Change namespace and output topic so published topic is /dist_sensor/laser_scan -->
           <ros>
             <namespace>/dist_sensor</namespace>
-            <argument>~/out:=laser_scan</argument>
+            <argument>~/out:=laser_scan_right</argument>
           </ros>
           <output_type>sensor_msgs/LaserScan</output_type>
         </plugin>
       </sensor>
+      
+      
+      <sensor name="sensor_ray_left" type="ray">
+        <pose>0 0.20 0 -1.570796 0 1.570796</pose>
+        <ray>
+          <scan>
+            <horizontal>
+              <samples>1000</samples>
+              <resolution>1.0</resolution>
+              <min_angle>-1.05</min_angle>
+              <max_angle>1.05</max_angle>
+            </horizontal>
+          </scan>
+          <range>
+            <min>0.1</min>
+            <max>50.0</max>
+            <resolution>0.01</resolution>
+          </range>
+          <!-- No noise, add later in ROS -->
+          <noise>
+        	<type>gaussian</type>
+        	<mean>0.0</mean>
+        	<stddev>0.00</stddev>
+      	  </noise>
+        </ray>
+        <!-- Not in migration guide -->
+        <always_on>true</always_on>
+        <!-- Not in migration guide -->
+        <visualize>true</visualize>
+        <update_rate>30.0</update_rate>
+        <plugin name="laser" filename="libgazebo_ros_ray_sensor.so">
+          <!-- Change namespace and output topic so published topic is /dist_sensor/laser_scan -->
+          <ros>
+            <namespace>/dist_sensor</namespace>
+            <argument>~/out:=laser_scan_left</argument>
+          </ros>
+          <output_type>sensor_msgs/LaserScan</output_type>
+        </plugin>
+      </sensor>
+      
+      
+      <sensor name="sensor_ray_top" type="ray">
+        <pose>0 0 0.2 0 -1.570796 3.141593</pose>
+        <ray>
+          <scan>
+            <horizontal>
+              <samples>1000</samples>
+              <resolution>1.0</resolution>
+              <min_angle>-1.05</min_angle>
+              <max_angle>1.05</max_angle>
+            </horizontal>
+          </scan>
+          <range>
+            <min>0.1</min>
+            <max>50.0</max>
+            <resolution>0.01</resolution>
+          </range>
+          <!-- No noise, add later in ROS -->
+          <noise>
+        	<type>gaussian</type>
+        	<mean>0.0</mean>
+        	<stddev>0.00</stddev>
+      	  </noise>
+        </ray>
+        <!-- Not in migration guide -->
+        <always_on>true</always_on>
+        <!-- Not in migration guide -->
+        <visualize>true</visualize>
+        <update_rate>30.0</update_rate>
+        <plugin name="laser" filename="libgazebo_ros_ray_sensor.so">
+          <!-- Change namespace and output topic so published topic is /dist_sensor/laser_scan -->
+          <ros>
+            <namespace>/dist_sensor</namespace>
+            <argument>~/out:=laser_scan_top</argument>
+          </ros>
+          <output_type>sensor_msgs/LaserScan</output_type>
+        </plugin>
+      </sensor>
+      
+      
+      <sensor name="sensor_ray_bot" type="ray">
+        <pose>0 0 -0.2 0 1.570796 0</pose>
+        <ray>
+          <scan>
+            <horizontal>
+              <samples>1000</samples>
+              <resolution>1.0</resolution>
+              <min_angle>-1.05</min_angle>
+              <max_angle>1.05</max_angle>
+            </horizontal>
+          </scan>
+          <range>
+            <min>0.1</min>
+            <max>50.0</max>
+            <resolution>0.01</resolution>
+          </range>
+          <!-- No noise, add later in ROS -->
+          <noise>
+        	<type>gaussian</type>
+        	<mean>0.0</mean>
+        	<stddev>0.00</stddev>
+      	  </noise>
+        </ray>
+        <!-- Not in migration guide -->
+        <always_on>true</always_on>
+        <!-- Not in migration guide -->
+        <visualize>true</visualize>
+        <update_rate>30.0</update_rate>
+        <plugin name="laser" filename="libgazebo_ros_ray_sensor.so">
+          <!-- Change namespace and output topic so published topic is /dist_sensor/laser_scan -->
+          <ros>
+            <namespace>/dist_sensor</namespace>
+            <argument>~/out:=laser_scan_bot</argument>
+          </ros>
+          <output_type>sensor_msgs/LaserScan</output_type>
+        </plugin>
+      </sensor>  
+      
+      
+      
+      
+      
+      
+      
       
       <!-- 2D Camera --> 
         <sensor type="camera" name="cable_camera">
@@ -167,6 +375,17 @@
       
       
     </link>
+    
+    
+    
+     
+
+      
+      
+        
+    
+    
+    
     <link name='/imu_link'>
       <pose>0 0 0 0 0 0</pose>
       <inertial>
@@ -460,6 +679,9 @@
         <use_parent_model_frame>1</use_parent_model_frame>
       </axis>
     </joint>
+    
+    
+    
     <plugin name='rosbag' filename='libgazebo_multirotor_base_plugin.so'>
       <robotNamespace/>
       <linkName>base_link</linkName>
@@ -533,6 +755,18 @@
       <motorSpeedPubTopic>/motor_speed/3</motorSpeedPubTopic>
       <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
     </plugin>
+    <!--plugin name='wind_plugin' filename='libgazebo_wind_plugin.so'>
+      <frameId>base_link</frameId>
+      <linkName>base_link</linkName>
+      <robotNamespace/>
+      <xyzOffset>1 0 0</xyzDirection>
+      <windDirection>0 1 0</windDirection>
+      <windForceMean>2</windForceMean>
+      <windGustDirection>1 0 0</windGustDirection>
+      <windGustDuration>0.25</windGustDuration>
+      <windGustStart>0</windGustStart>
+      <windGustForceMean>2.5</windGustForceMean>
+    </plugin-->
     <model name='gps0'>
       <link name='link'>
         <pose>0 0 0 0 0 0</pose>
@@ -567,8 +801,8 @@
           <plugin name='gps_plugin' filename='libgazebo_gps_plugin.so'>
             <robotNamespace/>
             <gpsNoise>1</gpsNoise>
-            <gpsXYRandomWalk>2.0</gpsXYRandomWalk>
-            <gpsZRandomWalk>4.0</gpsZRandomWalk>
+            <gpsXYRandomWalk>0.02</gpsXYRandomWalk>
+            <gpsZRandomWalk>0.04</gpsZRandomWalk>
             <gpsXYNoiseDensity>0.0002</gpsXYNoiseDensity>
             <gpsZNoiseDensity>0.0004</gpsZNoiseDensity>
             <gpsVXYNoiseDensity>0.2</gpsVXYNoiseDensity>
