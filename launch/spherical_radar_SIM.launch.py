@@ -1,10 +1,10 @@
 from struct import pack
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
-from launch.substitutions import PathJoinSubstitution
+from launch.substitutions import PathJoinSubstitution, LaunchConfiguration
 from ament_index_python.packages import get_package_share_directory
 import os
 
@@ -52,15 +52,15 @@ def generate_launch_description():
     )
 
     ### FOR TESTING, REMOVE 
-    world_to_drone = Node(
-        package="tf2_ros",
-        executable="static_transform_publisher",
-        arguments=["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "world", "drone"] #  (x, y, z, yaw, roll, pitch)
-    )
     # world_to_drone = Node(
-    #     package="spherical-radar-drone",
-    #     executable="drone_frame_broadcaster"
+    #     package="tf2_ros",
+    #     executable="static_transform_publisher",
+    #     arguments=["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "world", "drone"] #  (x, y, z, yaw, roll, pitch)
     # )
+    world_to_drone = Node(
+        package="spherical-radar-drone",
+        executable="drone_frame_broadcaster"
+    )
 
 
 
@@ -143,6 +143,32 @@ def generate_launch_description():
     )
 
 
+    # loads robot description from URDF
+    use_sim_time = LaunchConfiguration('use_sime_time', default='false')
+    urdf_file_name = 'urdf/test.urdf'
+    urdf = os.path.join(get_package_share_directory('spherical-radar-drone'), urdf_file_name)
+    with open(urdf, 'r') as infp:
+        robot_desc = infp.read()
+
+    robot_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='robot_state_publisher',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time, 'robot_description': robot_desc}],
+        arguments=[urdf]
+    )
+
+    # for starting RVIZ2 in correct configuration
+    rviz_node = Node(
+        package='rviz2',
+        executable='rviz2',
+        name='rviz2',
+        output='screen',
+        arguments=["-d", os.path.join(get_package_share_directory('spherical-radar-drone'), 'rviz/spherical_radar.rviz')]
+    )
+
+
     return LaunchDescription([
         tf_drone_to_rear,
         tf_drone_to_front,
@@ -156,7 +182,9 @@ def generate_launch_description():
         lidar_to_mmwave_right,
         lidar_to_mmwave_left,
         lidar_to_mmwave_top,
-        lidar_to_mmwave_bot
+        lidar_to_mmwave_bot,
         #radar_pointcloud_filter,
         #offboard_control
+        robot_state_publisher,
+        rviz_node
     ])

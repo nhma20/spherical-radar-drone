@@ -38,6 +38,7 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(radar_cable_follower_msgs REQUIRED)
+# find_package(urdf_tutorial REQUIRED)
 
 find_package(PCL 1.2 REQUIRED)
 
@@ -144,6 +145,23 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}/
 )
 
+# install the mesh directory
+install(DIRECTORY
+  mesh
+  DESTINATION share/${PROJECT_NAME}/
+)
+
+# install the urdf directory
+install(DIRECTORY
+  urdf
+  DESTINATION share/${PROJECT_NAME}/
+)
+
+# install the rviz directory
+install(DIRECTORY
+  rviz
+  DESTINATION share/${PROJECT_NAME}/
+)
 
 ament_package()
 

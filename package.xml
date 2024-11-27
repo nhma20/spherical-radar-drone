@@ -23,7 +23,7 @@
   <depend>radar_cable_follower_msgs</depend>
   <!-- depend>iwr6843isk_pub</depend -->
   <depend>xwr6843_ros2</depend>
-
+  <depend>urdf_package</depend>
 
 
   <test_depend>ament_lint_auto</test_depend>
