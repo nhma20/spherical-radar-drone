@@ -30,6 +30,70 @@ vector_t rotateVector(rotation_matrix_t R, vector_t v) {
     return ret_vec;
 }
 
+
+float quaternionToYaw(const quat_t quat) {
+
+    Eigen::Quaternionf quaternion;
+    quaternion.x() = quat(0);
+    quaternion.y() = quat(1);
+    quaternion.z() = quat(2);
+    quaternion.w() = quat(3);
+
+    // Normalize the quaternion to ensure it's a unit quaternion
+    Eigen::Quaternionf normalized_quaternion = quaternion.normalized();
+
+    // Convert the quaternion to Euler angles
+    Eigen::Vector3f euler_angles = normalized_quaternion.toRotationMatrix().eulerAngles(2, 1, 0);
+
+    // The yaw angle is the first element in the eulerAngles vector (rotation around the z-axis)
+    float yaw = euler_angles[0];
+
+    return yaw;
+}
+
+
+vector_t quaternionToDirection(const quat_t quaternion) {
+
+    Eigen::Quaternionf eq;
+    eq.x() = quaternion(0);
+    eq.y() = quaternion(1);
+    eq.z() = quaternion(2);
+    eq.w() = quaternion(3);
+
+    // Normalize the quaternion to ensure it's a unit quaternion
+    Eigen::Quaternionf normalized_quaternion = eq.normalized();
+
+    // Apply the quaternion to the unit vector along the x-axis (1, 0, 0)
+    Eigen::Vector3f direction = normalized_quaternion * Eigen::Vector3f::UnitX();
+    return direction;
+}
+
+
+quat_t findRotation(const Eigen::Vector3f& v1, const Eigen::Vector3f& v2) {
+    // Normalize the input vectors
+    Eigen::Vector3f v1_normalized = v1.normalized();
+    Eigen::Vector3f v2_normalized = v2.normalized();
+
+    // Calculate the cross product and dot product
+    Eigen::Vector3f cross_product = v1_normalized.cross(v2_normalized);
+    float dot_product = v1_normalized.dot(v2_normalized);
+
+    // Calculate the quaternion components
+    float w = std::sqrt((v1_normalized.squaredNorm() * v2_normalized.squaredNorm())) + dot_product;
+    Eigen::Quaternionf quaternion(w, cross_product.x(), cross_product.y(), cross_product.z());
+
+    // Normalize the quaternion
+    quaternion.normalize();
+
+    quat_t quat;
+    quat(0) = quaternion.x();
+    quat(1) = quaternion.y();
+    quat(2) = quaternion.z();
+    quat(3) = quaternion.w();
+
+    return quat;
+}
+
 point_t projectPointOnPlane(point_t point, plane_t plane) {
 //     line_t l = {
 //         .p = point,
@@ -49,7 +113,6 @@ point_t projectPointOnPlane(point_t point, plane_t plane) {
     point_t proj_point = point - (point_t)(dist*plane.normal);
 
     return proj_point;
-
 }
 
 orientation_t quatToEul(quat_t quat) {

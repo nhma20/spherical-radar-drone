@@ -6,6 +6,7 @@
 
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
+#include <eigen3/Eigen/Dense>
 
 /*****************************************************************************/
 // Defines
@@ -79,7 +80,13 @@ typedef struct {
 
 rotation_matrix_t eulToR(orientation_t eul);
 
+float quaternionToYaw(const quat_t quat);
+
+vector_t quaternionToDirection(const quat_t quaternion);
+
 vector_t rotateVector(rotation_matrix_t R, vector_t v);
+
+quat_t findRotation(const Eigen::Vector3f& v1, const Eigen::Vector3f& v2);
 
 point_t projectPointOnPlane(point_t point, plane_t plane);
 

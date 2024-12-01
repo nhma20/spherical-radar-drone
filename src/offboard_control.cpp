@@ -38,11 +38,15 @@
 #include <px4_msgs/msg/vehicle_control_mode.hpp>
 #include <px4_msgs/msg/vehicle_status.hpp>
 #include <px4_msgs/msg/rc_channels.hpp>
+#include <px4_msgs/msg/vehicle_odometry.hpp>
+#include <px4_msgs/msg/manual_control_setpoint.hpp>
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/pose_array.hpp>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
+#include "visualization_msgs/msg/marker.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
 
 #include <std_msgs/msg/int32.hpp>
 
@@ -69,7 +73,6 @@
 
 using namespace std::chrono;
 using namespace std::chrono_literals;
-// using namespace px4_msgs::msg;
 
 class OffboardControl : public rclcpp::Node {
 public:
@@ -80,20 +83,51 @@ public:
 			this->create_publisher<px4_msgs::msg::TrajectorySetpoint>("fmu/trajectory_setpoint/in", 10);
 		_vehicle_command_publisher =
 			this->create_publisher<px4_msgs::msg::VehicleCommand>("fmu/vehicle_command/in", 10);
+		_marker_pub = 
+			this->create_publisher<visualization_msgs::msg::MarkerArray>("/markers", 10);
 
 		this->declare_parameter<float>("yaw_frac", 0.25);
 		this->declare_parameter<float>("pos_frac", 0.5);
-		this->declare_parameter<float>("powerline_following_distance", 5.0);
-		this->get_parameter("powerline_following_distance", _following_distance);
-		this->declare_parameter<float>("powerline_following_speed", 1.5);
-		this->get_parameter("powerline_following_speed", _follow_speed);
-		this->declare_parameter<int>("powerline_following_ID", -1);
 
 		this->declare_parameter<int>("launch_with_debug", 1);
 		this->get_parameter("launch_with_debug", _launch_with_debug);
 
 		this->declare_parameter<float>("take_off_to_height", 0.0);
 		this->get_parameter("take_off_to_height", _takeoff_height);
+
+		this->declare_parameter<float>("max_decelration", 1.5);
+		this->get_parameter("max_decelration", _max_decelration);
+
+		this->declare_parameter<float>("max_x_vel", 10);
+		this->get_parameter("max_x_vel", _max_x_vel);
+
+		this->declare_parameter<float>("max_y_vel", 10);
+		this->get_parameter("max_y_vel", _max_y_vel);
+
+		this->declare_parameter<float>("max_z_vel", 3);
+		this->get_parameter("max_z_vel", _max_z_vel);
+
+		this->declare_parameter<float>("max_yaw_rate", 1.570796); // rad/s
+		this->get_parameter("max_yaw_rate", _max_yaw_rate);
+
+
+		_vehicle_odometry_subscriber = create_subscription<px4_msgs::msg::VehicleOdometry>(
+			"/fmu/vehicle_odometry/out", 10,
+			[this](px4_msgs::msg::VehicleOdometry::ConstSharedPtr msg) {
+              _x_vel = msg->vx; // Negated to get NED
+			  _y_vel = -msg->vy;
+			  _z_vel = -msg->vz;
+			});
+
+
+		_manual_control_input_sub = create_subscription<px4_msgs::msg::ManualControlSetpoint>(
+			"/fmu/manual_control_setpoint/out", 10,
+			[this](px4_msgs::msg::ManualControlSetpoint::ConstSharedPtr msg) {
+              _input_x_vel = msg->x; 
+			  _input_y_vel = -msg->y; // Negated to get NED
+			  _input_z_vel = (msg->z*2.0)-1.0;
+			  _input_yaw_rate = -msg->r; // Negated to get NED
+			});
 
 
 		// VehicleStatus: https://github.com/PX4/px4_msgs/blob/master/msg/VehicleStatus.msg
@@ -111,21 +145,6 @@ public:
               _rc_misc_state = msg->channels[7];
 			  _rc_height_state = msg->channels[6];
 			  
-			//   RCLCPP_INFO(this->get_logger(),  "\nRC MISC state: %f", _rc_misc_state);
-			});
-
-
-		_powerline_pose_sub = this->create_subscription<radar_cable_follower_msgs::msg::TrackedPowerlines>(
-			"/tracked_powerlines",	10,
-			std::bind(&OffboardControl::update_alignment_pose, this, std::placeholders::_1));
-
-
-		_selected_id_sub = this->create_subscription<std_msgs::msg::Int32>(
-			"/selected_id",	10,
-            [this](std_msgs::msg::Int32::ConstSharedPtr msg) {
-				_id_mutex.lock(); {
-					_selected_ID = msg->data;
-				} _id_mutex.unlock();
 			});
 
 
@@ -150,11 +169,14 @@ public:
 		timer_ = this->create_wall_timer(100ms, 
 				std::bind(&OffboardControl::flight_state_machine, this));
 
-		_mission_timer = this->create_wall_timer(250ms, 
-				std::bind(&OffboardControl::mission_state_machine, this));
-
 		_path_timer = this->create_wall_timer(500ms, 
 				std::bind(&OffboardControl::publish_path, this));
+
+		_timer_markers = this->create_wall_timer(50ms, std::bind(&OffboardControl::publish_markers, this));
+
+		// _timer_collision_checker = this->create_wall_timer(33ms, std::bind(&OffboardControl::collision_checker, this));
+
+		// _timer_input_velocity = this->create_wall_timer(50ms, std::bind(&OffboardControl::publish_input_velocity_arrow, this));
 		
 	}
 
@@ -173,8 +195,9 @@ public:
 
 private:
 	rclcpp::TimerBase::SharedPtr timer_;
-	rclcpp::TimerBase::SharedPtr _mission_timer;
 	rclcpp::TimerBase::SharedPtr _path_timer;
+	rclcpp::TimerBase::SharedPtr _timer_markers;
+	rclcpp::TimerBase::SharedPtr _timer_collision_checker;
 
 	rclcpp::Publisher<px4_msgs::msg::OffboardControlMode>::SharedPtr _offboard_control_mode_publisher;
 	rclcpp::Publisher<px4_msgs::msg::TrajectorySetpoint>::SharedPtr _trajectory_setpoint_publisher;
@@ -182,25 +205,34 @@ private:
 	rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr _follow_pose_pub;
 	rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr _manual_path_pub;
 	rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr _offboard_path_pub;
+	rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr _marker_pub;
 
-	rclcpp::Subscription<radar_cable_follower_msgs::msg::TrackedPowerlines>::SharedPtr _powerline_pose_sub;
 	rclcpp::Subscription<px4_msgs::msg::Timesync>::SharedPtr _timesync_sub;
 	rclcpp::Subscription<px4_msgs::msg::VehicleStatus>::SharedPtr _vehicle_status_sub;
-	rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr _selected_id_sub;
 	rclcpp::Subscription<px4_msgs::msg::RcChannels>::SharedPtr _rc_channels_sub;
+	rclcpp::Subscription<px4_msgs::msg::VehicleOdometry>::SharedPtr _vehicle_odometry_subscriber;
+	rclcpp::Subscription<px4_msgs::msg::ManualControlSetpoint>::SharedPtr _manual_control_input_sub;
 
 	std::shared_ptr<tf2_ros::TransformListener> transform_listener_{nullptr};
 	std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
 	std::atomic<uint64_t> _timestamp;   //!< common synced timestamped
 	int _nav_state, _old_nav_state = 0;
 	int _arming_state;
-	geometry_msgs::msg::PoseArray::SharedPtr _powerline_array_msg; // auto?
+	geometry_msgs::msg::PoseArray::SharedPtr _powerline_array_msg;
 	int _counter = 0;
-	float _following_distance;
-	float _follow_speed;
+	float _follow_speed = 0;
 	int _selected_ID = -1;
 	int _launch_with_debug;
 	float _takeoff_height;
+	float _max_decelration;
+	float _max_x_vel;
+	float _max_y_vel;
+	float _max_z_vel;
+	float _max_yaw_rate;
+	float _input_x_vel;
+	float _input_y_vel;
+	float _input_z_vel;
+	float _input_yaw_rate;
 
 	bool _new_takeoff = true;
 	float _rc_misc_state = -1;
@@ -213,21 +245,23 @@ private:
 
 	bool _in_offboard = false;
 
+	float _x_vel = 0.0; // NED or NWU?
+	float _y_vel = 0.0;
+	float _z_vel = 0.0;
+
+
 	std::mutex _id_mutex;
 	std::mutex _drone_pose_mutex;
 	std::mutex _powerline_mutex;
 
 	pose_t _drone_pose; // in world coordinates North-West-Up
-	orientation_t _drone_orientation; // RPY
 	pose_t _alignment_pose;
 
 	float _hover_height = 2;
 
 	void publish_path();
-	void mission_state_machine();
 	void flight_state_machine();
 	void update_drone_pose();
-	void update_alignment_pose(radar_cable_follower_msgs::msg::TrackedPowerlines::SharedPtr msg);
 	void publish_offboard_control_mode() const;
 	void publish_takeoff_setpoint();
 	void publish_tracking_setpoint();
@@ -235,8 +269,230 @@ private:
 	void publish_setpoint(px4_msgs::msg::TrajectorySetpoint msg) const;
 	void publish_vehicle_command(uint16_t command, float param1 = 0.0,
 				     float param2 = 0.0) const;
-	void world_to_points();
+	void collision_checker();
+	void speed_limiter();
+	void publish_markers(); 
+	void input_to_output_setpoint(); // translate sticks to velocity in offboard
 };
+
+
+// void OffboardControl::collision_checker() {
+
+// }
+
+
+
+// void OffboardControl::speed_limiter() {
+
+// }
+
+void OffboardControl::input_to_output_setpoint() {
+
+	vector_t unit_x_vector(
+		1.0,
+		0.0,
+		0.0
+	);
+
+	vector_t input_velocity_vector(
+		_input_x_vel,
+		-_input_y_vel,
+		_input_z_vel
+	);
+
+	float drone_yaw_test = quatToEul(_drone_pose.quaternion)(2);
+
+	// find drone yaw and subtract from world arrow yaw
+	orientation_t drone_yaw(
+		0.0, 
+		0.0, 
+		-drone_yaw_test
+	);
+
+	quat_t drone_yaw_quat = eulToQuat(drone_yaw);
+
+	rotation_matrix_t yaw_rot_mat = quatToMat(drone_yaw_quat);
+
+	vector_t rotated_input_velocity = rotateVector(yaw_rot_mat, input_velocity_vector);
+
+	rotated_input_velocity(0) = rotated_input_velocity(0) * _max_x_vel;
+	rotated_input_velocity(1) = rotated_input_velocity(1) * _max_y_vel;
+	rotated_input_velocity(2) = rotated_input_velocity(2) * _max_z_vel;
+
+
+	px4_msgs::msg::TrajectorySetpoint msg{};
+	msg.timestamp = _timestamp.load();
+	msg.x = NAN; //_drone_pose.position(0); //NAN 
+	msg.y = NAN; //-_drone_pose.position(1); //NAN; 
+	msg.z = NAN; //-_drone_pose.position(2); //NAN; 
+	msg.yaw = NAN; //-drone_yaw_test; //NAN 
+	msg.yawspeed = -_input_yaw_rate;
+	msg.vx = rotated_input_velocity(0); 
+	msg.vy = rotated_input_velocity(1); 
+	msg.vz = -rotated_input_velocity(2); 
+
+	OffboardControl::publish_setpoint(msg);
+
+}
+
+
+void OffboardControl::publish_markers() {
+
+	visualization_msgs::msg::MarkerArray marker_array;
+
+	///////////////////////////////////////////////////////////
+	// input velocity arrow
+	visualization_msgs::msg::Marker input_velocity_marker;
+	input_velocity_marker.header = std_msgs::msg::Header();
+	input_velocity_marker.header.stamp = this->now();
+	input_velocity_marker.header.frame_id = "world";
+
+	input_velocity_marker.ns = "input_velocity_arrow";
+	input_velocity_marker.id = 1;
+
+	input_velocity_marker.type = visualization_msgs::msg::Marker::ARROW;
+
+	input_velocity_marker.action = visualization_msgs::msg::Marker::ADD;
+
+	vector_t unit_x_vector(
+		1.0,
+		0.0,
+		0.0
+	);
+
+	vector_t input_velocity_vector(
+		_input_x_vel,
+		_input_y_vel,
+		_input_z_vel
+	);
+
+	quat_t arrow_rotation = findRotation(unit_x_vector, input_velocity_vector);
+
+	float drone_yaw_test = quatToEul(_drone_pose.quaternion)(2);
+
+	// find drone yaw and subtract from world arrow yaw
+	orientation_t drone_yaw(
+		0.0, 
+		0.0, 
+		drone_yaw_test
+	);
+
+	quat_t drone_yaw_quat = (eulToQuat(drone_yaw));
+
+	quat_t arrow_orientation_drone_yaw = quatMultiply(drone_yaw_quat, arrow_rotation);
+
+	arrow_rotation = arrow_orientation_drone_yaw;
+
+
+	input_velocity_marker.pose.orientation.x = arrow_rotation(0);
+	input_velocity_marker.pose.orientation.y = arrow_rotation(1);
+	input_velocity_marker.pose.orientation.z = arrow_rotation(2);
+	input_velocity_marker.pose.orientation.w = arrow_rotation(3);
+	input_velocity_marker.pose.position.x = _drone_pose.position(0);
+	input_velocity_marker.pose.position.y = _drone_pose.position(1);
+	input_velocity_marker.pose.position.z = _drone_pose.position(2); 
+
+	// Set the scale of the marker -- 1x1x1 here means 1m on a side
+	input_velocity_marker.scale.x = sqrt(pow((_max_x_vel*_input_x_vel),2)+pow((_max_y_vel*_input_y_vel),2)+pow((_max_z_vel*_input_z_vel),2));
+	input_velocity_marker.scale.y = input_velocity_marker.scale.x / 5;
+	input_velocity_marker.scale.z = input_velocity_marker.scale.x / 5;
+	// Set the color -- be sure to set alpha to something non-zero!
+	input_velocity_marker.color.r = 0.0f;
+	input_velocity_marker.color.g = 1.0f;
+	input_velocity_marker.color.b = 0.0f;
+	input_velocity_marker.color.a = 0.6;
+
+	input_velocity_marker.lifetime = rclcpp::Duration::from_seconds(0);
+
+	marker_array.markers.push_back(input_velocity_marker);
+
+
+
+
+	///////////////////////////////////////////////////////////
+	// drone velocity arrow
+	visualization_msgs::msg::Marker drone_velocity_marker;
+	drone_velocity_marker.header = std_msgs::msg::Header();
+	drone_velocity_marker.header.stamp = this->now();
+	drone_velocity_marker.header.frame_id = "world";
+
+	drone_velocity_marker.ns = "velocity_arrow";
+	drone_velocity_marker.id = 0;
+
+	drone_velocity_marker.type = visualization_msgs::msg::Marker::ARROW;
+
+	drone_velocity_marker.action = visualization_msgs::msg::Marker::ADD;
+
+	vector_t drone_velocity_vector(
+		_x_vel,
+		_y_vel,
+		_z_vel
+	);
+
+	quat_t drone_arrow_rotation = findRotation(unit_x_vector, drone_velocity_vector);
+
+	drone_velocity_marker.pose.orientation.x = drone_arrow_rotation(0);
+	drone_velocity_marker.pose.orientation.y = drone_arrow_rotation(1);
+	drone_velocity_marker.pose.orientation.z = drone_arrow_rotation(2);
+	drone_velocity_marker.pose.orientation.w = drone_arrow_rotation(3);
+	drone_velocity_marker.pose.position.x = _drone_pose.position(0); //0; 
+	drone_velocity_marker.pose.position.y = _drone_pose.position(1); //0;
+	drone_velocity_marker.pose.position.z = _drone_pose.position(2); //0; 
+
+	// Set the scale of the marker -- 1x1x1 here means 1m on a side
+	drone_velocity_marker.scale.x = sqrt(pow(this->_x_vel,2)+pow(this->_y_vel,2)+pow(this->_z_vel,2));
+	drone_velocity_marker.scale.y = drone_velocity_marker.scale.x / 5;
+	drone_velocity_marker.scale.z = drone_velocity_marker.scale.x / 5;
+	// Set the color -- be sure to set alpha to something non-zero!
+	drone_velocity_marker.color.r = 1.0f;
+	drone_velocity_marker.color.g = 0.0f;
+	drone_velocity_marker.color.b = 0.0f;
+	drone_velocity_marker.color.a = 0.6;
+
+	drone_velocity_marker.lifetime = rclcpp::Duration::from_seconds(0);
+
+	marker_array.markers.push_back(drone_velocity_marker);
+
+
+
+
+	///////////////////////////////////////////////////////////
+	// safety bubble sphere
+	visualization_msgs::msg::Marker safety_bubble_marker;
+	safety_bubble_marker.header = std_msgs::msg::Header();
+	safety_bubble_marker.header.stamp = this->now();
+	safety_bubble_marker.header.frame_id = "world";
+	safety_bubble_marker.ns = "safety_bubble";
+	safety_bubble_marker.id = 2;
+	safety_bubble_marker.type = visualization_msgs::msg::Marker::SPHERE;
+	safety_bubble_marker.action = visualization_msgs::msg::Marker::ADD;
+
+	safety_bubble_marker.pose.orientation.x = _drone_pose.quaternion(0);
+	safety_bubble_marker.pose.orientation.y = _drone_pose.quaternion(1);
+	safety_bubble_marker.pose.orientation.z = _drone_pose.quaternion(2);
+	safety_bubble_marker.pose.orientation.w = _drone_pose.quaternion(3);
+	safety_bubble_marker.pose.position.x = _drone_pose.position(0); 
+	safety_bubble_marker.pose.position.y = _drone_pose.position(1);
+	safety_bubble_marker.pose.position.z = _drone_pose.position(2); 
+
+	// Set the scale of the marker -- 1x1x1 here means 1m on a side
+	safety_bubble_marker.scale.x = 2; /// make parameter
+	safety_bubble_marker.scale.y = safety_bubble_marker.scale.x;
+	safety_bubble_marker.scale.z = safety_bubble_marker.scale.x;
+	// Set the color -- be sure to set alpha to something non-zero!
+	safety_bubble_marker.color.r = 1.0f;
+	safety_bubble_marker.color.g = 1.0f;
+	safety_bubble_marker.color.b = 0.2f;
+	safety_bubble_marker.color.a = 0.25;
+
+	safety_bubble_marker.lifetime = rclcpp::Duration::from_seconds(0);
+
+	marker_array.markers.push_back(safety_bubble_marker);
+
+
+
+	this->_marker_pub->publish(marker_array);
+}
 
 
 void OffboardControl::publish_path() {
@@ -311,113 +567,6 @@ void OffboardControl::publish_path() {
 }
 
 
-void OffboardControl::mission_state_machine() {
-
-	//if (! _in_offboard)
-	//{
-	//	return;
-	//}
-
-	// if (_rc_misc_state < -0.5)
-	// {
-	// 	RCLCPP_INFO(this->get_logger(),  "\nOriginal distance and speed\n");
-	// 	this->set_parameter(rclcpp::Parameter("powerline_following_distance", _following_distance));
-	// 	this->set_parameter(rclcpp::Parameter("powerline_following_speed", _follow_speed));
-	// }
-
-	// if (_prev_rc_misc_state < -0.5 && _rc_misc_state > -0.5 && _rc_misc_state < 0.5)
-	// {
-	// 	this->set_parameter(rclcpp::Parameter("powerline_following_distance", _following_distance+7.5));
-	// 	RCLCPP_INFO(this->get_logger(),  "\nIncreasing following distance\n");
-	// }
-
-	// if (_prev_rc_misc_state > -0.5 && _prev_rc_misc_state < 0.5 && _rc_misc_state > 0.5)
-	// {
-	// 	// this->set_parameter(rclcpp::Parameter("powerline_following_ID", 0));
-	// 	this->set_parameter(rclcpp::Parameter("powerline_following_speed", _follow_speed*2));
-	// 	RCLCPP_INFO(this->get_logger(),  "\nIncreasing following speed\n");
-	// }
-
-	if (_prev_rc_misc_state != _rc_misc_state)
-	{
-	
-		if (_rc_misc_state < -0.5)
-		{
-			RCLCPP_INFO(this->get_logger(),  "\nForward direction\n");
-			_follow_speed = abs(_follow_speed);
-		}
-
-		if (_rc_misc_state > -0.5 && _rc_misc_state < 0.5)
-		{
-			RCLCPP_INFO(this->get_logger(),  "\nStop\n");
-			_follow_speed = 0.0;
-		}
-
-		if (_rc_misc_state > 0.5)
-		{
-			RCLCPP_INFO(this->get_logger(),  "\nReverse direction\n");
-			_follow_speed = -abs(_follow_speed);
-		}
-
-		this->set_parameter(rclcpp::Parameter("powerline_following_speed", _follow_speed));
-
-		_prev_rc_misc_state = _rc_misc_state;
-	}
-	
-
-	if (_prev_rc_height_state != _rc_height_state)
-	{
-
-		if (_rc_height_state < -0.5)
-		{
-			RCLCPP_INFO(this->get_logger(),  "\n-1m following height\n");
-			_following_distance = _following_distance - 1.0;
-		}
-
-		if (_rc_height_state > -0.5 && _rc_height_state < 0.5)
-		{
-			RCLCPP_INFO(this->get_logger(),  "\nSame following height\n");
-		}
-
-		if (_rc_height_state > 0.5)
-		{
-			RCLCPP_INFO(this->get_logger(),  "\n+1m following height\n");
-			_following_distance = _following_distance + 1.0;
-		}
-
-		this->set_parameter(rclcpp::Parameter("powerline_following_distance", _following_distance));
-
-		_prev_rc_height_state = _rc_height_state;
-	}
-
-	// static int callback_count = 0;
-
-	// if (callback_count == 0)
-	// {
-	// 	RCLCPP_INFO(this->get_logger(),  "\nOriginal ID, original direction\n");
-	// }
-
-	// if (callback_count == 1)
-	// {
-	// 	this->set_parameter(rclcpp::Parameter("powerline_following_ID", 0));
-	// 	this->set_parameter(rclcpp::Parameter("powerline_following_distance", _following_distance));
-	// 	this->set_parameter(rclcpp::Parameter("powerline_following_speed", -_follow_speed*2));
-	// 	RCLCPP_INFO(this->get_logger(),  "\nNew ID, reversing direction\n");
-	// }
-
-	// if (callback_count == 2)
-	// {
-	// 	this->set_parameter(rclcpp::Parameter("powerline_following_ID", 0));
-	// 	this->set_parameter(rclcpp::Parameter("powerline_following_distance", _following_distance+7.5));
-	// 	this->set_parameter(rclcpp::Parameter("powerline_following_speed", _follow_speed*2));
-	// 	RCLCPP_INFO(this->get_logger(),  "\nGreater distance, increased speed\n");
-	// }
-	
-
-	// callback_count++;
-}
-
-
 void OffboardControl::flight_state_machine() {
 
 	OffboardControl::update_drone_pose();
@@ -467,15 +616,10 @@ void OffboardControl::flight_state_machine() {
 
 	else if(_counter < 1000000000){
 		if(_counter == 10 && _launch_with_debug > 0){
-			RCLCPP_INFO(this->get_logger(), "\n \nBeginning alignment \n");
+			RCLCPP_INFO(this->get_logger(), "\n \nManual offboard mode \n");
 		}
-		publish_tracking_setpoint();
-
-		// RCLCPP_INFO(this->get_logger(), "Alignment pose:\n X %f \n Y: %f \n Z: %f",
-		// 	_alignment_pose.position(0), _alignment_pose.position(1), _alignment_pose.position(2));	
-			
-		// RCLCPP_INFO(this->get_logger(), "Drone pose:\n X %f \n Y: %f \n Z: %f",		
-		// 	_drone_pose.position(0), _drone_pose.position(1), _drone_pose.position(2));	
+		// publish_tracking_setpoint();
+		input_to_output_setpoint();
 
 	}
 
@@ -512,69 +656,10 @@ void OffboardControl::update_drone_pose() {
 		_drone_pose.quaternion(2) = t.transform.rotation.z;
 		_drone_pose.quaternion(3) = t.transform.rotation.w;
 
-		// RCLCPP_INFO(this->get_logger(), "Yaw: %f", _drone_orientation(2));
-
 	} _drone_pose_mutex.unlock();
 
 }
 
-
-void OffboardControl::update_alignment_pose(radar_cable_follower_msgs::msg::TrackedPowerlines::SharedPtr msg) {		
-		
-	if (msg->poses.size() < 1)
-	{
-		return;
-	}
-
-
-	float current_highest = 0;
-	size_t highest_index = 0;
-	int id = -1;
-
-	_id_mutex.lock(); {
-		id = _selected_ID;
-	} _id_mutex.unlock();
-
-	this->get_parameter("powerline_following_ID", id);
-
-	for (size_t i = 0; i < msg->poses.size(); i++)
-	{
-		// find powerline corresponding to selected ID
-		if (msg->ids[i] == id)
-		{
-			current_highest = msg->poses[i].position.z;
-			highest_index = i;
-			break;
-		}
-		
-		// else find highest powerline
-		if ( msg->poses[i].position.z > current_highest )
-		{
-			current_highest = msg->poses[i].position.z;
-			highest_index = i;
-		}
-	}
-
-	float tmp_follow_dist;
-	this->get_parameter("powerline_following_distance", tmp_follow_dist);	
-
-	_powerline_mutex.lock(); {	
-
-		_alignment_pose.position(0) = msg->poses[highest_index].position.x;
-		_alignment_pose.position(1) = msg->poses[highest_index].position.y;
-		_alignment_pose.position(2) = msg->poses[highest_index].position.z + (float)tmp_follow_dist;
-
-		_alignment_pose.quaternion(0) = msg->poses[highest_index].orientation.x;
-		_alignment_pose.quaternion(1) = msg->poses[highest_index].orientation.y;
-		_alignment_pose.quaternion(2) = msg->poses[highest_index].orientation.z;
-		_alignment_pose.quaternion(3) = msg->poses[highest_index].orientation.w;
-
-		// RCLCPP_INFO(this->get_logger(), "Alignment pose:\n X %f \n Y: %f \n Z: %f",
-		// 	_alignment_pose.position(0), _alignment_pose.position(1), _alignment_pose.position(2));		
-
-	} _powerline_mutex.unlock();
-
-}
 
 
 /**
@@ -818,6 +903,7 @@ void OffboardControl::publish_vehicle_command(uint16_t command, float param1,
 
 	_vehicle_command_publisher->publish(msg);
 }
+
 
 int main(int argc, char* argv[]) {
 	std::cout << "Starting offboard control node..." << std::endl;

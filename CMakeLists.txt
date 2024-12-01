@@ -38,7 +38,7 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(radar_cable_follower_msgs REQUIRED)
-# find_package(urdf_tutorial REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 find_package(PCL 1.2 REQUIRED)
 
@@ -62,23 +62,24 @@ add_executable(drone_frame_broadcaster
 install(TARGETS drone_frame_broadcaster DESTINATION lib/${PROJECT_NAME})
 
 
-# add_executable(offboard_control
-#   src/offboard_control.cpp
-#   src/geometry.cpp
-# )
-#   ament_target_dependencies(offboard_control
-#   rclcpp
-#   Eigen3
-#   geometry_msgs
-#   px4_msgs
-#   std_msgs
-#   nav_msgs
-#   tf2
-#   tf2_ros
-#   tf2_msgs
-#   radar_cable_follower_msgs
-# )
-# install(TARGETS offboard_control DESTINATION lib/${PROJECT_NAME})
+add_executable(offboard_control
+  src/offboard_control.cpp
+  src/geometry.cpp
+)
+  ament_target_dependencies(offboard_control
+  rclcpp
+  Eigen3
+  geometry_msgs
+  px4_msgs
+  std_msgs
+  nav_msgs
+  tf2
+  tf2_ros
+  tf2_msgs
+  radar_cable_follower_msgs
+  visualization_msgs
+)
+install(TARGETS offboard_control DESTINATION lib/${PROJECT_NAME})
 
 
 # add_executable(radar_pointcloud_filter
@@ -102,6 +103,24 @@ install(TARGETS drone_frame_broadcaster DESTINATION lib/${PROJECT_NAME})
 # )
 # install(TARGETS radar_pointcloud_filter DESTINATION lib/${PROJECT_NAME})
 
+
+add_executable(radar_pointcloud_combiner
+src/radar_pointcloud_combiner.cpp
+src/geometry.cpp
+)
+target_link_libraries (radar_pointcloud_combiner
+${PCL_LIBRARIES}
+)
+  ament_target_dependencies(radar_pointcloud_combiner
+  rclcpp
+  sensor_msgs
+  px4_msgs
+  tf2
+  tf2_ros
+  tf2_msgs
+  PCL
+)
+install(TARGETS radar_pointcloud_combiner DESTINATION lib/${PROJECT_NAME})
 
 
 add_executable(lidar_to_mmwave_node

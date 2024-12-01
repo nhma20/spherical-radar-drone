@@ -73,7 +73,7 @@ def generate_launch_description():
     offboard_control = Node(
         package="spherical-radar-drone",
         executable="offboard_control",
-        parameters=[config]
+        # parameters=[config]
     )
 
     lidar_to_mmwave_front = Node(
@@ -143,6 +143,13 @@ def generate_launch_description():
     )
 
 
+    radar_pointcloud_combiner = Node(
+        package="spherical-radar-drone",
+        executable="radar_pointcloud_combiner",
+        arguments=['--ros-args', '--log-level', 'warn']
+    )
+
+
     # loads robot description from URDF
     use_sim_time = LaunchConfiguration('use_sime_time', default='false')
     urdf_file_name = 'urdf/test.urdf'
@@ -184,7 +191,8 @@ def generate_launch_description():
         lidar_to_mmwave_top,
         lidar_to_mmwave_bot,
         #radar_pointcloud_filter,
-        #offboard_control
+        offboard_control,
         robot_state_publisher,
+        radar_pointcloud_combiner,
         rviz_node
     ])

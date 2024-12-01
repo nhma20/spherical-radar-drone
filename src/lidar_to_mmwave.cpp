@@ -95,7 +95,7 @@ void LidarToMmwave::lidar_to_mmwave_pcl(const sensor_msgs::msg::LaserScan::Share
 			//std::cout << "Object detected, range: " << _msg->ranges[i] << std::endl;
 			// object_center_dists.push_back( _msg->ranges[i] );
 			// object_center_angls.push_back( float(i)*angle_increment - angle_max );
-			// continue; ////////////////////////////////////////////////// FOR TESTING, REMOVE ////////////////////////////////////////////////////////////////
+			// continue; ////////////////////////////////////////////////// "PERFECT DATA" FOR TESTING, REMOVE ////////////////////////////////////////////////////////////////
 			if(grouped_previous == 0){	
 				//std::cout << "First beam of object" << std::endl;
 				group_dist += _msg->ranges[i];
@@ -141,7 +141,7 @@ void LidarToMmwave::lidar_to_mmwave_pcl(const sensor_msgs::msg::LaserScan::Share
 	}
 	seeded = true;
 	// generate noise
-	float amplitude = 0.05; //////////////////////////////////// FOR TESTING, MAKE 0.05 /////////////////////////////////////////////////////
+	float amplitude = 0.025; //////////////////////////////////// REDUCE FOR TESTING, MAKE 0.025 /////////////////////////////////////////////////////
 	float noise;
 	// convert to xyz (including noise)
 	for(size_t i = 0; i<objects_dist.size(); i++){
