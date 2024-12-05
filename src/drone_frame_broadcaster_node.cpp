@@ -39,15 +39,18 @@ explicit
             : Node(node_name, node_namespace) {
 
         // Params
+        this->declare_parameter<std::string>("drone_yaw_frame_id", "drone_yaw_only");
         this->declare_parameter<std::string>("drone_frame_id", "drone");
         this->declare_parameter<std::string>("world_frame_id", "world");
 
+        this->get_parameter("drone_yaw_frame_id", drone_yaw_frame_id_);
         this->get_parameter("drone_frame_id", drone_frame_id_);
         this->get_parameter("world_frame_id", world_frame_id_);
 
 
         // Initialize the transform broadcaster
         tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+        no_yaw_tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
         std::ostringstream stream;
 
@@ -109,13 +112,56 @@ private:
         // Send the transformation
         tf_broadcaster_->sendTransform(t);
 
+
+
+
+
+
+
+        //////// world to drone (no roll+pitch) transform
+        geometry_msgs::msg::TransformStamped t_yaw;
+
+        // Read message content and assign it to
+        // corresponding tf variables
+        t_yaw.header.stamp = now;
+        t_yaw.header.frame_id = world_frame_id_;
+        t_yaw.child_frame_id = drone_yaw_frame_id_;
+
+        float drone_yaw = quaternionToYaw(quat);
+
+        // RCLCPP_INFO(this->get_logger(),  "Yaw: %f", drone_yaw);
+
+        orientation_t eul_yaw_only(
+            0.0,
+            0.0,
+            drone_yaw
+        );
+
+        quat_t yaw_quat = eulToQuat(eul_yaw_only);
+
+        // Roll PI and Yaw PI to orient odo frame with world frame
+        quat = yaw_quat;//quatMultiply(yaw_quat, RollYaw_PI_quat);
+
+        t_yaw.transform.translation.x = position(0);
+        t_yaw.transform.translation.y = position(1);
+        t_yaw.transform.translation.z = position(2);
+  
+        t_yaw.transform.rotation.x = quat(0);
+        t_yaw.transform.rotation.y = quat(1);
+        t_yaw.transform.rotation.z = quat(2);
+        t_yaw.transform.rotation.w = quat(3);
+
+        no_yaw_tf_broadcaster_->sendTransform(t_yaw);
+
     }
 
     rclcpp::Subscription<px4_msgs::msg::VehicleOdometry>::SharedPtr subscription_;
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+    std::unique_ptr<tf2_ros::TransformBroadcaster> no_yaw_tf_broadcaster_;
 
     rotation_matrix_t R_NED_to_body_frame;
 
+    std::string drone_yaw_frame_id_;
     std::string drone_frame_id_;
     std::string world_frame_id_;
 

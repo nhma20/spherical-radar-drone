@@ -88,6 +88,8 @@ vector_t rotateVector(rotation_matrix_t R, vector_t v);
 
 quat_t findRotation(const Eigen::Vector3f& v1, const Eigen::Vector3f& v2);
 
+vector_t projectVectorOnVector(vector_t v1, vector_t v2);
+
 point_t projectPointOnPlane(point_t point, plane_t plane);
 
 orientation_t quatToEul(quat_t quat);

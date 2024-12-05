@@ -9,6 +9,16 @@
 // Function implementations
 /*****************************************************************************/
 
+
+vector_t projectVectorOnVector(vector_t v1, vector_t v2) {
+
+    vector_t out = ( (v1.dot(v2)) / v2.dot(v2) ) * v2 ;
+
+    return out;
+
+}
+
+
 rotation_matrix_t eulToR(orientation_t eul) {
 
     Eigen::Quaternionf q; 
@@ -33,22 +43,22 @@ vector_t rotateVector(rotation_matrix_t R, vector_t v) {
 
 float quaternionToYaw(const quat_t quat) {
 
-    Eigen::Quaternionf quaternion;
-    quaternion.x() = quat(0);
-    quaternion.y() = quat(1);
-    quaternion.z() = quat(2);
-    quaternion.w() = quat(3);
+    // Eigen::Quaternionf quaternion;
+    // quaternion.x() = quat(0);
+    // quaternion.y() = quat(1);
+    // quaternion.z() = quat(2);
+    // quaternion.w() = quat(3);
 
-    // Normalize the quaternion to ensure it's a unit quaternion
-    Eigen::Quaternionf normalized_quaternion = quaternion.normalized();
+    // // Normalize the quaternion to ensure it's a unit quaternion
+    // Eigen::Quaternionf normalized_quaternion = quaternion.normalized();
 
-    // Convert the quaternion to Euler angles
-    Eigen::Vector3f euler_angles = normalized_quaternion.toRotationMatrix().eulerAngles(2, 1, 0);
+    // // Convert the quaternion to Euler angles
+    // Eigen::Vector3f euler_angles = normalized_quaternion.toRotationMatrix().eulerAngles(2, 1, 0);
 
-    // The yaw angle is the first element in the eulerAngles vector (rotation around the z-axis)
-    float yaw = euler_angles[0];
+    // // The yaw angle is the first element in the eulerAngles vector (rotation around the z-axis)
+    // float yaw = euler_angles[0];
 
-    return yaw;
+    return quatToEul(quat)(2); //yaw;
 }
 
 
@@ -60,11 +70,21 @@ vector_t quaternionToDirection(const quat_t quaternion) {
     eq.z() = quaternion(2);
     eq.w() = quaternion(3);
 
-    // Normalize the quaternion to ensure it's a unit quaternion
-    Eigen::Quaternionf normalized_quaternion = eq.normalized();
+    vector_t unit_x(
+        1,
+        0,
+        0
+    );
 
-    // Apply the quaternion to the unit vector along the x-axis (1, 0, 0)
-    Eigen::Vector3f direction = normalized_quaternion * Eigen::Vector3f::UnitX();
+    rotation_matrix_t rot_mat = quatToMat(quaternion);
+
+    vector_t direction = rotateVector(rot_mat, unit_x);
+
+    // // Normalize the quaternion to ensure it's a unit quaternion
+    // Eigen::Quaternionf normalized_quaternion = eq.normalized();
+
+    // // Apply the quaternion to the unit vector along the x-axis (1, 0, 0)
+    // Eigen::Vector3f direction = normalized_quaternion * Eigen::Vector3f::UnitX();
     return direction;
 }
 

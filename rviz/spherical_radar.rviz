@@ -10,6 +10,7 @@ Panels:
         - /TF1/Frames1
         - /PointCloud22/Topic1
         - /RobotModel1/Description Topic1
+        - /Pose1
       Splitter Ratio: 0.5176470875740051
     Tree Height: 1225
   - Class: rviz_common/Selection
@@ -333,9 +334,7 @@ Visualization Manager:
       Enabled: true
       Name: MarkerArray
       Namespaces:
-        input_velocity_arrow: true
-        safety_bubble: true
-        velocity_arrow: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -375,6 +374,25 @@ Visualization Manager:
         Value: /combined_pcl
       Use Fixed Frame: true
       Use rainbow: true
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.10000000149011612
+      Class: rviz_default_plugins/Pose
+      Color: 252; 233; 79
+      Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: Pose
+      Shaft Length: 5
+      Shaft Radius: 1
+      Shape: Arrow
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /debug_pose
       Value: true
   Enabled: true
   Global Options:
@@ -419,7 +437,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 130.89401245117188
+      Distance: 65.95667266845703
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
