@@ -45,6 +45,7 @@
 #include <geometry_msgs/msg/pose_array.hpp>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include "visualization_msgs/msg/marker.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -57,8 +58,11 @@
 #include <radar_cable_follower_msgs/msg/tracked_powerlines.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <tf2_ros/transform_listener.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/buffer.h>
 #include <tf2/exceptions.h>
+
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
 #include <stdint.h>
 #include <math.h>  
@@ -107,7 +111,7 @@ public:
 		this->declare_parameter<float>("take_off_to_height", 0.0);
 		this->get_parameter("take_off_to_height", _takeoff_height);
 
-		this->declare_parameter<float>("max_decelration", 1.5);
+		this->declare_parameter<float>("max_decelration", 10.0); // m/s²
 		this->get_parameter("max_decelration", _max_decelration);
 
 		this->declare_parameter<float>("max_x_vel", 10);
@@ -122,14 +126,33 @@ public:
 		this->declare_parameter<float>("max_yaw_rate", 1.570796); // rad/s
 		this->get_parameter("max_yaw_rate", _max_yaw_rate);
 
-		this->declare_parameter<float>("caution_sphere_radius", 5.0); //1.5); // meters
+		this->declare_parameter<float>("caution_sphere_radius", 2.5); //1.5); // meters
 		this->get_parameter("caution_sphere_radius", _caution_sphere_radius);
 
-		this->declare_parameter<float>("safety_sphere_radius", 1.5); // 0.75 meters
+		this->declare_parameter<float>("safety_sphere_radius", 0.75); // 0.75 meters
 		this->get_parameter("safety_sphere_radius", _safety_sphere_radius);
 
 		this->declare_parameter<float>("min_input_velocity", 0.5); // 
 		this->get_parameter("min_input_velocity", _min_input_velocity);
+
+		this->declare_parameter<float>("caution_rejection_scalar", 0.5); // 
+		this->get_parameter("caution_rejection_scalar", _caution_rejection_scalar);
+
+		this->declare_parameter<float>("safety_rejection_scalar", 0.5); // 
+		this->get_parameter("safety_rejection_scalar", _safety_rejection_scalar);
+
+		this->declare_parameter<float>("tangential_rejection_scalar", 0.25); // 
+		this->get_parameter("tangential_rejection_scalar", _tangential_rejection_scalar);
+
+		this->declare_parameter<float>("look_ahead_cone_length_width_ratio", 2.5); // 
+		this->get_parameter("look_ahead_cone_length_width_ratio", _look_ahead_cone_length_to_width_ratio);
+
+		this->declare_parameter<float>("braking_safety_factor", 1.5); // 
+		this->get_parameter("braking_safety_factor", _braking_safety_factor);
+
+		this->declare_parameter<float>("emergency_brake_speed_limit", 1.25); // 
+		this->get_parameter("emergency_brake_speed_limit", _emergency_brake_speed_limit);
+		
 
 
 		_vehicle_odometry_subscriber = create_subscription<px4_msgs::msg::VehicleOdometry>(
@@ -145,9 +168,9 @@ public:
 			"/fmu/manual_control_setpoint/out", 10,
 			[this](px4_msgs::msg::ManualControlSetpoint::ConstSharedPtr msg) {
               _input_x_vel = msg->x; 
-			  _input_y_vel = -msg->y; // Negated to get NED
+			  _input_y_vel = -msg->y; // Negated to get NWU
 			  _input_z_vel = (msg->z*2.0)-1.0;
-			  _input_yaw_rate = -msg->r; // Negated to get NED
+			  _input_yaw_rate = -msg->r; // Negated to get NWU
 			});
 
 
@@ -178,6 +201,7 @@ public:
 		_pose_pub = this->create_publisher<geometry_msgs::msg::PoseStamped>("/debug_pose", 10);
 		_manual_path_pub = this->create_publisher<nav_msgs::msg::Path>("/manual_path", 10);
 		_offboard_path_pub = this->create_publisher<nav_msgs::msg::Path>("/offboard_path", 10);
+		_point_pub = this->create_publisher<geometry_msgs::msg::PointStamped>("/debug_point", 10);
 
 
 		tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -229,6 +253,7 @@ private:
 	rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr _manual_path_pub;
 	rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr _offboard_path_pub;
 	rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr _marker_pub;
+	rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr _point_pub;
 
 	rclcpp::Subscription<px4_msgs::msg::Timesync>::SharedPtr _timesync_sub;
 	rclcpp::Subscription<px4_msgs::msg::VehicleStatus>::SharedPtr _vehicle_status_sub;
@@ -239,6 +264,7 @@ private:
 
 	pcl::PointCloud<pcl::PointXYZ>::Ptr _combined_points;
 
+	// std::unique_ptr<tf2_ros::TransformBroadcaster> _drone_velocity_frame_tf_broadcaster;
 	std::shared_ptr<tf2_ros::TransformListener> transform_listener_{nullptr};
 	std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
 	std::atomic<uint64_t> _timestamp;   //!< common synced timestamped
@@ -263,6 +289,13 @@ private:
 	float _safety_sphere_radius;
 	bool _in_caution_sphere = 0;
 	float _min_input_velocity;
+	float _tangential_rejection_scalar;
+	float _safety_rejection_scalar;
+	float _caution_rejection_scalar;
+	float _look_ahead_cone_length = 0.0;
+	float _look_ahead_cone_length_to_width_ratio;
+	float _braking_safety_factor;
+	float _emergency_brake_speed_limit;
 
 	bool _new_takeoff = true;
 	float _rc_misc_state = -1;
@@ -378,11 +411,8 @@ void OffboardControl::collision_checker(std::vector<size_t> * combined_points_id
 
 vector_t OffboardControl::speed_limiter() {
 
+	// adjust velocity of drone based on obstacles and input velocity
 	// Assume all obstacles static in world frame
-	// Predict relative motion based on drone velocity (and in future radial velocities)
-	// If obstacle moves too fast towards drone (based on max drone decelaration and safety bubble size)
-	//	-> reduce speed to avoid entering safety bubble
-	// if obstacle inside caution sphere, progressively limit speed until 0 when obstacle touches surface of safety bubble
 
 	std::vector<size_t> points_idx_in_caution_sphere = {};
 	std::vector<size_t> distances_in_caution_sphere = {};
@@ -413,13 +443,15 @@ vector_t OffboardControl::speed_limiter() {
 	// scale vector by original vector magnitude
 	input_velocity_vector = input_velocity_vector * input_velocity_vector_scalar;
 
-	if (!_in_caution_sphere) 
-	{
-		return input_velocity_vector;
-	}
+	// if (!_in_caution_sphere) 
+	// {
+	// 	return input_velocity_vector;
+	// }
 
 
 	////////// -------- caution bubble -------- //////////
+	// if obstacle inside caution sphere, progressively limit speed until 0 when obstacle touches surface of safety bubble
+	// only reduce input velocity component in direction of obstacle
 
 	vector_t caution_rejection_vector_sum(
 		0.0,
@@ -457,7 +489,7 @@ vector_t OffboardControl::speed_limiter() {
 
 			// make rejection stronger when deeper in caution sphere
 			// float rejection_strength = 1.0 - ( ((distances_in_caution_sphere.at(i)-_safety_sphere_radius) - (_caution_sphere_radius-_safety_sphere_radius)));  // scale with input_velocity_vector_scalar?
-			float _cautiousness = 1.5 * input_velocity_vector_scalar;
+			float _cautiousness = _caution_rejection_scalar * input_velocity_vector_scalar;
 			float caution_truncate = distances_in_caution_sphere.at(i)-_safety_sphere_radius;
 
 			// make sure does not go negative when accidentally inside safety sphere
@@ -503,12 +535,11 @@ vector_t OffboardControl::speed_limiter() {
 
 		obst_vect.normalize();
 
-		vector_t obst_rejection_vect = obst_vect;
-
 		safety_rejection_vector_sum += -obst_vect;
 	}
 
-	safety_rejection_vector_sum = safety_rejection_vector_sum  * input_velocity_vector_scalar;
+	float timidness = _safety_rejection_scalar;
+	safety_rejection_vector_sum = safety_rejection_vector_sum  * timidness * input_velocity_vector_scalar;
 
 	vector_t unit_x(
 		1.0,
@@ -516,15 +547,191 @@ vector_t OffboardControl::speed_limiter() {
 		0.0
 	);
 
-	// quat_t rejection_quat = findRotation(unit_x, safety_rejection_vector_sum);
+
+
+
+	////////// -------- tangential rejection -------- //////////
+	// calculate tangential rejection to guide drone around obstacles
+
+	vector_t tangential_rejection_vector_sum(
+		0.0,
+		0.0,
+		0.0
+	);
+
+	vector_t unit_z(
+		0.0,
+		0.0,
+		1.0
+	);
+
+	for (size_t i = 0; i < points_idx_in_caution_sphere.size(); i++)
+	{
+		vector_t obst_vect(
+			_combined_points->at(points_idx_in_caution_sphere.at(i)).x, 
+			_combined_points->at(points_idx_in_caution_sphere.at(i)).y,
+			_combined_points->at(points_idx_in_caution_sphere.at(i)).z
+		);
+
+		obst_vect.normalize();
+
+		vector_t obst_z_crossprod = obst_vect.cross(unit_z);
+		vector_t tangent;
+
+		// go above when above obst, else go below
+		if (obst_vect(2) < 0)
+		{
+			tangent = obst_z_crossprod.cross(obst_vect);
+		}
+		else {
+			tangent = -obst_z_crossprod.cross(obst_vect);
+		}
+
+		float _cautiousness = _tangential_rejection_scalar * input_velocity_vector_scalar;
+		float caution_truncate = distances_in_caution_sphere.at(i)-_safety_sphere_radius;
+
+		// make sure does not go negative when accidentally inside safety sphere
+		if ( caution_truncate < 0.0)
+		{
+			caution_truncate = 0.0;
+		}
+
+		float tangential_strength = _cautiousness * (1.0 - ( caution_truncate / (_caution_sphere_radius-_safety_sphere_radius)) );;
+		
+		tangential_rejection_vector_sum += tangent * tangential_strength;
+
+	}
+
+
+
+	////////// -------- velocity rejection -------- //////////
+	// Predict relative motion based on drone velocity (and in future radial velocities)
+	// If obstacle moves too fast towards drone (based on max drone decelaration and perception horizon)
+	//	-> reduce speed to avoid entering safety bubble
+
+	// get drone velocity in local drone frame (no roll and pitch)
+	vector_t drone_velocity(
+		_x_vel,
+		_y_vel,
+		_z_vel
+	);
+
+	vector_t unit_x_vector(
+		1.0,
+		0.0,
+		0.0
+	);
+
+	float drone_yaw_f = quatToEul(_drone_pose.quaternion)(2);
+
+	// find drone yaw and subtract from world yaw
+	orientation_t drone_yaw(
+		0.0, 
+		0.0,
+		-drone_yaw_f
+	); 
+
+	rotation_matrix_t yaw_rotation = quatToMat(eulToQuat(drone_yaw));
+
+	vector_t drone_velocity_drone_frame = rotateVector(yaw_rotation, drone_velocity);
+
+	// get angle between obst vector and velocity vector - if inside cone and close enough wrt. speed, apply rejection
+	static const float max_angle = atan( 1.0 / (_look_ahead_cone_length_to_width_ratio*2) );// rad 
+
+	float drone_vel_magnitude = drone_velocity.blueNorm(); // sqrt(pow(this->_x_vel,2)+pow(this->_y_vel,2)+pow(this->_z_vel,2));
+
+	vector_t cone_rejection(
+		0.0,
+		0.0,
+		0.0
+	);
+
+	static bool emergency_brake = false;
+	float time_to_stop = drone_vel_magnitude / _max_decelration;
+	_look_ahead_cone_length = drone_vel_magnitude * time_to_stop * _braking_safety_factor;
+
+	// only check velocity when over certain speed
+	if ( drone_vel_magnitude > _emergency_brake_speed_limit )
+	{	
+		for (size_t i = 0; i < (size_t)_combined_points->size(); i++)
+		{
+						
+			vector_t point_i(
+				_combined_points->at(i).x,
+				_combined_points->at(i).y,
+				_combined_points->at(i).z
+			);
+			
+			float time_to_obst = (point_i.blueNorm() - _safety_sphere_radius) / drone_vel_magnitude; // dist approximately just x, save computation
+
+			// if distance is within safety margin AND obstacle along positive direction of drone velocity
+			// add cross product check here to easily verify if inside cone??
+
+			float obst_vel_angle = acos( drone_velocity_drone_frame.dot( point_i ) / (drone_velocity_drone_frame.blueNorm() * point_i.blueNorm()) );
+
+			if ( time_to_obst < ( time_to_stop * _braking_safety_factor ) && obst_vel_angle < max_angle)
+			{
+				cone_rejection = -drone_velocity * 5.0;
+				emergency_brake = true;
+				RCLCPP_INFO(this->get_logger(),  "Look ahead cone length: %f:", _look_ahead_cone_length);
+				RCLCPP_INFO(this->get_logger(),  "Dist to obst: %f VS Drone velocity: %f", point_i.blueNorm(), drone_vel_magnitude);
+				RCLCPP_INFO(this->get_logger(),  "Time to obst: %f VS Time to stop: %f", time_to_obst, ( time_to_stop * _braking_safety_factor ));
+				// RCLCPP_INFO(this->get_logger(),  "Obst vel angle: %f VS Max angle: %f", obst_vel_angle, max_angle);
+				RCLCPP_INFO(this->get_logger(),  "We need to brake now!");
+
+
+
+
+				auto point_msg = geometry_msgs::msg::PointStamped();
+				point_msg.header.stamp = this->now();
+				point_msg.header.frame_id = "drone_yaw_only";
+				point_msg.point.x = point_i(0);
+				point_msg.point.y = point_i(1);
+				point_msg.point.z = point_i(2);
+
+				_point_pub->publish(point_msg);
+
+
+
+
+
+
+				break;			
+			}		
+		}
+	}
+
+	if (emergency_brake == true && drone_vel_magnitude > _emergency_brake_speed_limit) // param this limit
+	{
+		return (cone_rejection+safety_rejection_vector_sum+caution_rejection_vector_sum+tangential_rejection_vector_sum);
+	}
+	else
+	{
+		emergency_brake = false;
+	}
+
+
+
+
+
+
+	////////// -------- perception horizon speed limitation -------- //////////
+	// make sure maximum speed reflects maximum power line detection distance
+
+
+
+
+
+
+	// quat_t test_quat = findRotation(unit_x_vector, drone_velocity_drone_frame);
 
 	// auto pose_msg = geometry_msgs::msg::PoseStamped();
 	// pose_msg.header.stamp = this->now();
 	// pose_msg.header.frame_id = "drone_yaw_only";
-	// pose_msg.pose.orientation.x = rejection_quat(0);
-	// pose_msg.pose.orientation.y = rejection_quat(1);
-	// pose_msg.pose.orientation.z = rejection_quat(2);
-	// pose_msg.pose.orientation.w = rejection_quat(3);
+	// pose_msg.pose.orientation.x = test_quat(0);
+	// pose_msg.pose.orientation.y = test_quat(1);
+	// pose_msg.pose.orientation.z = test_quat(2);
+	// pose_msg.pose.orientation.w = test_quat(3);
 	// pose_msg.pose.position.x = 0.0;
 	// pose_msg.pose.position.y = 0.0;
 	// pose_msg.pose.position.z = 0.0;
@@ -533,15 +740,13 @@ vector_t OffboardControl::speed_limiter() {
 	
 
 
-	/////////////// need some negative tangential stuff & velocity prediction
-	/////////////// gradually reduce overall speed deeper in caution sphere - allow higher speeds towards front
-
-
 
 	// return (input_velocity_vector);
-	// return (input_velocity_vector+caution_rejection_vector_sum);
-	// return (input_velocity_vector+safety_rejection_vector_sum);
-	return (input_velocity_vector+safety_rejection_vector_sum+caution_rejection_vector_sum);
+	// return (input_velocity_vector + cone_rejection);
+	// return (input_velocity_vector + tangential_rejection_vector_sum);
+	// return (input_velocity_vector + caution_rejection_vector_sum);
+	// return (input_velocity_vector + safety_rejection_vector_sum);
+	return (input_velocity_vector + safety_rejection_vector_sum + caution_rejection_vector_sum + tangential_rejection_vector_sum);
 }
 
 void OffboardControl::input_to_output_setpoint() {
@@ -575,19 +780,57 @@ void OffboardControl::input_to_output_setpoint() {
 	/////////// new
 	vector_t limited_velocity = OffboardControl::speed_limiter();	
 	vector_t rotated_input_velocity = rotateVector(yaw_rot_mat, limited_velocity);
-	
 
+	// static pose_t last_given_pose;
+	// static pose_t latched_drone_pose; 
+	// static bool latched_pose = false;
+	pose_t pose_to_publish;
+
+	// // if no input velocity and no drone velocity, control for last received position
+	// if (rotated_input_velocity.norm() < 0.01)
+	// {
+		
+	// 	if (latched_pose == false)
+	// 	{
+	// 		latched_drone_pose = last_given_pose;// _drone_pose;
+	// 	}
+
+	// 	latched_pose = true;
+
+	// 	pose_to_publish = latched_drone_pose;
+
+
+	// }
+	// else 
+	// {
+	// 	latched_pose = false;
+
+	// 	pose_to_publish = _drone_pose;
+	// }
+	
+	pose_to_publish = _drone_pose;
 
 	px4_msgs::msg::TrajectorySetpoint msg{};
 	msg.timestamp = _timestamp.load();
-	msg.x = NAN; //_drone_pose.position(0); //NAN 
-	msg.y = NAN; //-_drone_pose.position(1); //NAN; 
-	msg.z = NAN; //-_drone_pose.position(2); //NAN; 
-	msg.yaw = NAN; //-drone_yaw_test; //NAN 
-	msg.yawspeed = -_input_yaw_rate;
+	// msg.x = NAN;
+	// msg.y = NAN;
+	// msg.z = NAN;
+	// msg.yaw = NAN;
+	// msg.x = _drone_pose.position(0) + rotated_input_velocity(0);
+	// msg.y = -_drone_pose.position(1) + rotated_input_velocity(1);
+	// msg.z = -_drone_pose.position(2) - rotated_input_velocity(2);
+	msg.x = pose_to_publish.position(0) + rotated_input_velocity(0);
+	msg.y = -pose_to_publish.position(1) + rotated_input_velocity(1);
+	msg.z = -pose_to_publish.position(2) - rotated_input_velocity(2);
+	msg.yaw = -drone_yaw_test - _input_yaw_rate; // +
+	msg.yawspeed = -_input_yaw_rate; // -
 	msg.vx = rotated_input_velocity(0); 
 	msg.vy = rotated_input_velocity(1); 
 	msg.vz = -rotated_input_velocity(2); 
+
+	// last_given_pose.position(0) = pose_to_publish.position(0) + _x_vel/_max_decelration;
+	// last_given_pose.position(1) = -pose_to_publish.position(1) + _y_vel/_max_decelration;
+	// last_given_pose.position(2) = -pose_to_publish.position(2) - _z_vel/_max_decelration;
 
 	OffboardControl::publish_setpoint(msg);
 
@@ -600,69 +843,6 @@ void OffboardControl::publish_markers() {
 
 	///////////////////////////////////////////////////////////
 	// input velocity arrow
-	// visualization_msgs::msg::Marker input_velocity_marker;
-	// input_velocity_marker.header = std_msgs::msg::Header();
-	// input_velocity_marker.header.stamp = this->now();
-	// input_velocity_marker.header.frame_id = "world";
-
-	// input_velocity_marker.ns = "input_velocity_arrow";
-	// input_velocity_marker.id = 1;
-
-	// input_velocity_marker.type = visualization_msgs::msg::Marker::ARROW;
-
-	// input_velocity_marker.action = visualization_msgs::msg::Marker::ADD;
-
-	// vector_t unit_x_vector(
-	// 	1.0,
-	// 	0.0,
-	// 	0.0
-	// );
-
-	// vector_t input_velocity_vector(
-	// 	_input_x_vel,
-	// 	_input_y_vel,
-	// 	_input_z_vel
-	// );
-
-	// quat_t arrow_rotation = findRotation(unit_x_vector, input_velocity_vector);
-
-	// float drone_yaw_test = quatToEul(_drone_pose.quaternion)(2);
-
-	// // find drone yaw and subtract from world arrow yaw
-	// orientation_t drone_yaw(
-	// 	0.0, 
-	// 	0.0, 
-	// 	drone_yaw_test
-	// );
-
-	// quat_t drone_yaw_quat = (eulToQuat(drone_yaw));
-
-	// quat_t arrow_orientation_drone_yaw = quatMultiply(drone_yaw_quat, arrow_rotation);
-
-	// arrow_rotation = arrow_orientation_drone_yaw;
-
-
-	// input_velocity_marker.pose.orientation.x = arrow_rotation(0);
-	// input_velocity_marker.pose.orientation.y = arrow_rotation(1);
-	// input_velocity_marker.pose.orientation.z = arrow_rotation(2);
-	// input_velocity_marker.pose.orientation.w = arrow_rotation(3);
-	// input_velocity_marker.pose.position.x = _drone_pose.position(0);
-	// input_velocity_marker.pose.position.y = _drone_pose.position(1);
-	// input_velocity_marker.pose.position.z = _drone_pose.position(2); 
-
-	// // Set the scale of the marker -- 1x1x1 here means 1m on a side
-	// input_velocity_marker.scale.x = sqrt(pow((_max_x_vel*_input_x_vel),2)+pow((_max_y_vel*_input_y_vel),2)+pow((_max_z_vel*_input_z_vel),2));
-	// input_velocity_marker.scale.y = input_velocity_marker.scale.x / 5;
-	// input_velocity_marker.scale.z = input_velocity_marker.scale.x / 5;
-	// // Set the color -- be sure to set alpha to something non-zero!
-	// input_velocity_marker.color.r = 0.0f;
-	// input_velocity_marker.color.g = 1.0f;
-	// input_velocity_marker.color.b = 0.0f;
-	// input_velocity_marker.color.a = 0.6;
-
-	// input_velocity_marker.lifetime = rclcpp::Duration::from_seconds(0);
-
-	// marker_array.markers.push_back(input_velocity_marker);
 	visualization_msgs::msg::Marker input_velocity_marker;
 	input_velocity_marker.header = std_msgs::msg::Header();
 	input_velocity_marker.header.stamp = this->now();
@@ -689,23 +869,6 @@ void OffboardControl::publish_markers() {
 
 	quat_t arrow_rotation = findRotation(unit_x_vector, input_velocity_vector);
 
-	// float drone_roll_test = quatToEul(_drone_pose.quaternion)(0);
-	// float drone_pitch_test = quatToEul(_drone_pose.quaternion)(1);
-
-	// // find drone yaw and subtract from world arrow yaw
-	// orientation_t drone_RP(
-	// 	-drone_roll_test, 
-	// 	-drone_pitch_test, 
-	// 	0.0
-	// );
-
-	// quat_t drone_RP_quat = (eulToQuat(drone_RP));
-
-	// _input_velocity_orientation_drone_RP = quatMultiply(drone_RP_quat, arrow_rotation);
-
-	// arrow_rotation = _input_velocity_orientation_drone_RP;
-
-
 	input_velocity_marker.pose.orientation.x = arrow_rotation(0);
 	input_velocity_marker.pose.orientation.y = arrow_rotation(1);
 	input_velocity_marker.pose.orientation.z = arrow_rotation(2);
@@ -722,7 +885,7 @@ void OffboardControl::publish_markers() {
 	input_velocity_marker.color.r = 0.0f;
 	input_velocity_marker.color.g = 1.0f;
 	input_velocity_marker.color.b = 0.0f;
-	input_velocity_marker.color.a = 0.6;
+	input_velocity_marker.color.a = 0.25;
 
 	input_velocity_marker.lifetime = rclcpp::Duration::from_seconds(0);
 
@@ -769,7 +932,7 @@ void OffboardControl::publish_markers() {
 	drone_velocity_marker.color.r = 1.0f;
 	drone_velocity_marker.color.g = 0.0f;
 	drone_velocity_marker.color.b = 0.0f;
-	drone_velocity_marker.color.a = 0.6;
+	drone_velocity_marker.color.a = 0.4;
 
 	drone_velocity_marker.lifetime = rclcpp::Duration::from_seconds(0);
 
@@ -846,6 +1009,44 @@ void OffboardControl::publish_markers() {
 	caution_sphere_marker.lifetime = rclcpp::Duration::from_seconds(0);
 
 	marker_array.markers.push_back(caution_sphere_marker);
+
+
+
+
+	///////////////////////////////////////////////////////////
+	// look-ahead volume
+	visualization_msgs::msg::Marker look_ahead_marker;
+	look_ahead_marker.header = std_msgs::msg::Header();
+	look_ahead_marker.header.stamp = this->now();
+	look_ahead_marker.header.frame_id = "world";
+	look_ahead_marker.ns = "look_ahead";
+	look_ahead_marker.id = 2;
+	look_ahead_marker.type = visualization_msgs::msg::Marker::MESH_RESOURCE;
+	look_ahead_marker.mesh_resource = "file://" + ament_index_cpp::get_package_share_directory("spherical-radar-drone") + "/mesh/look_ahead_cone.stl";//"package://pr2_description/meshes/base_v0/base.dae";
+	look_ahead_marker.action = visualization_msgs::msg::Marker::ADD;
+
+	look_ahead_marker.pose.orientation.x = drone_arrow_rotation(0);
+	look_ahead_marker.pose.orientation.y = drone_arrow_rotation(1);
+	look_ahead_marker.pose.orientation.z = drone_arrow_rotation(2);
+	look_ahead_marker.pose.orientation.w = drone_arrow_rotation(3);
+	look_ahead_marker.pose.position.x = _drone_pose.position(0); //0; 
+	look_ahead_marker.pose.position.y = _drone_pose.position(1); //0;
+	look_ahead_marker.pose.position.z = _drone_pose.position(2); //0; 
+
+	// Set the scale of the marker -- 1x1x1 here means 1m on a side
+	look_ahead_marker.scale.x = _look_ahead_cone_length * 2; // times 2 because marker scale also extends into negative axis?
+	look_ahead_marker.scale.y = look_ahead_marker.scale.x / _look_ahead_cone_length_to_width_ratio;
+	look_ahead_marker.scale.z = look_ahead_marker.scale.x / _look_ahead_cone_length_to_width_ratio;
+	// Set the color -- be sure to set alpha to something non-zero!
+	look_ahead_marker.color.r = 0.9f;
+	look_ahead_marker.color.g = 0.9f;
+	look_ahead_marker.color.b = 0.9f;
+	look_ahead_marker.color.a = 0.75f;
+
+	look_ahead_marker.lifetime = rclcpp::Duration::from_seconds(0);
+
+	marker_array.markers.push_back(look_ahead_marker);
+	
 
 
 
@@ -1218,7 +1419,7 @@ void OffboardControl::publish_setpoint(px4_msgs::msg::TrajectorySetpoint msg) co
 		-msg.yaw // NED to NWU
 	);
 
-	quat_t quat = eulToQuat(eul);
+	// quat_t quat = eulToQuat(eul);
 
 	_trajectory_setpoint_publisher->publish(msg);
 }

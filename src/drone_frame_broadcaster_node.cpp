@@ -51,6 +51,7 @@ explicit
         // Initialize the transform broadcaster
         tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
         no_yaw_tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+        _drone_velocity_frame_tf_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
         std::ostringstream stream;
 
@@ -153,11 +154,51 @@ private:
 
         no_yaw_tf_broadcaster_->sendTransform(t_yaw);
 
+
+
+
+
+
+
+        // drone velocity frame
+        vector_t drone_velocity(
+            msg->vx,
+            -msg->vy,
+            -msg->vz
+        );
+
+        vector_t unit_x_vector(
+            1.0,
+            0.0,
+            0.0
+        );
+
+        quat_t world_to_velocity_quat = findRotation(unit_x_vector, drone_velocity);
+
+        // Read message content and assign it to
+        // corresponding tf variables
+        t.header.stamp = now;
+        t.header.frame_id = "world";
+        t.child_frame_id = "drone_velocity";
+
+        t.transform.translation.x = position(0);
+        t.transform.translation.y = position(1);
+        t.transform.translation.z = position(2);
+
+        t.transform.rotation.x = world_to_velocity_quat(0);
+        t.transform.rotation.y = world_to_velocity_quat(1);
+        t.transform.rotation.z = world_to_velocity_quat(2);
+        t.transform.rotation.w = world_to_velocity_quat(3);
+
+        // Send the transformation
+        _drone_velocity_frame_tf_broadcaster->sendTransform(t);
+
     }
 
     rclcpp::Subscription<px4_msgs::msg::VehicleOdometry>::SharedPtr subscription_;
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     std::unique_ptr<tf2_ros::TransformBroadcaster> no_yaw_tf_broadcaster_;
+    std::unique_ptr<tf2_ros::TransformBroadcaster> _drone_velocity_frame_tf_broadcaster;
 
     rotation_matrix_t R_NED_to_body_frame;
 
