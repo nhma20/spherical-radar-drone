@@ -57,6 +57,11 @@ def generate_launch_description():
         executable="static_transform_publisher",
         arguments=["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "world", "drone"] #  (x, y, z, yaw, roll, pitch)
     )
+    drone_to_drone_yaw_only = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        arguments=["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "drone", "drone_yaw_only"] #  (x, y, z, yaw, roll, pitch)
+    )
     # world_to_drone = Node(
     #     package="spherical-radar-drone",
     #     executable="drone_frame_broadcaster"
@@ -73,11 +78,14 @@ def generate_launch_description():
             {'cli_port': '/dev/radar_front_CLI'},
             {'data_port': '/dev/radar_front_DATA'},
             {'frame_id': 'front_frame'},
-            {'radar_azimuth_fov': '120'},
-            {'radar_elevation_fov': '30'},
-            {'minimum_range': '0.2'}
+            {'radar_azimuth_fov', '120'},
+            {'radar_elevation_fov', '30'},
+            {'minimum_range', '0.2'}
          ],
-        arguments=['--ros-args', '--log-level', 'warn']
+        arguments=['--ros-args', '--log-level', 'warn'],
+        output='screen',
+        emulate_tty=True,
+        respawn=True
     )
 
     mmwave_rear = Node(
@@ -91,11 +99,14 @@ def generate_launch_description():
             {'cli_port': '/dev/radar_rear_CLI'},
             {'data_port': '/dev/radar_rear_DATA'},
             {'frame_id': 'rear_frame'},
-            {'radar_azimuth_fov': '120'},
-            {'radar_elevation_fov': '120'},
-            {'minimum_range': '0.2'}
+            {'radar_azimuth_fov', '120'},
+            {'radar_elevation_fov', '120'},
+            {'minimum_range', '0.2'}
          ],
-        arguments=['--ros-args', '--log-level', 'warn']
+        arguments=['--ros-args', '--log-level', 'warn'],
+        output='screen',
+        emulate_tty=True,
+        respawn=True
     )
 
     mmwave_top = Node(
@@ -109,12 +120,15 @@ def generate_launch_description():
             {'cli_port': '/dev/radar_top_CLI'},
             {'data_port': '/dev/radar_top_DATA'},
             {'frame_id': 'top_frame'},
-            {'radar_azimuth_fov': '120'},
-            {'radar_elevation_fov': '120'},
-            {'minimum_range': '0.2'}
+            {'radar_azimuth_fov', '120'},
+            {'radar_elevation_fov', '120'},
+            {'minimum_range', '0.2'}
             
          ],
-        arguments=['--ros-args', '--log-level', 'warn']
+        arguments=['--ros-args', '--log-level', 'warn'],
+        output='screen',
+        emulate_tty=True,
+        respawn=True
     )
 
     mmwave_bot = Node(
@@ -128,11 +142,14 @@ def generate_launch_description():
             {'cli_port': '/dev/radar_bot_CLI'},
             {'data_port': '/dev/radar_bot_DATA'},
             {'frame_id': 'bot_frame'},
-            {'radar_azimuth_fov': '120'},
-            {'radar_elevation_fov': '120'},
-            {'minimum_range': '0.2'}
+            {'radar_azimuth_fov', '120'},
+            {'radar_elevation_fov', '120'},
+            {'minimum_range', '0.2'}
          ],
-        arguments=['--ros-args', '--log-level', 'warn']
+        arguments=['--ros-args', '--log-level', 'warn'],
+        output='screen',
+        emulate_tty=True,
+        respawn=True
     )
 
     mmwave_right = Node(
@@ -146,11 +163,14 @@ def generate_launch_description():
             {'cli_port': '/dev/radar_right_CLI'},
             {'data_port': '/dev/radar_right_DATA'},
             {'frame_id': 'right_frame'},
-            {'radar_azimuth_fov': '120'},
-            {'radar_elevation_fov': '120'},
-            {'minimum_range': '0.2'}
+            {'radar_azimuth_fov', '120'},
+            {'radar_elevation_fov', '120'},
+            {'minimum_range', '0.2'}
          ],
-        arguments=['--ros-args', '--log-level', 'warn']
+        arguments=['--ros-args', '--log-level', 'warn'],
+        output='screen',
+        emulate_tty=True,
+        respawn=True
     )
 
     mmwave_left = Node(
@@ -164,11 +184,14 @@ def generate_launch_description():
             {'cli_port': '/dev/radar_left_CLI'},
             {'data_port': '/dev/radar_left_DATA'},
             {'frame_id': 'left_frame'},
-            {'radar_azimuth_fov': '120'},
-            {'radar_elevation_fov': '120'},
-            {'minimum_range': '0.2'}
+            {'radar_azimuth_fov', '120'},
+            {'radar_elevation_fov', '120'},
+            {'minimum_range', '0.2'}
          ],
-        arguments=['--ros-args', '--log-level', 'warn']
+        arguments=['--ros-args', '--log-level', 'warn'],
+        output='screen',
+        emulate_tty=True,
+        respawn=True
     )
 
     radar_pointcloud_filter = Node(
@@ -183,6 +206,13 @@ def generate_launch_description():
         parameters=[config]
     )
 
+    radar_pointcloud_combiner = Node(
+        package="spherical-radar-drone",
+        executable="radar_pointcloud_combiner",
+        arguments=['--ros-args', '--log-level', 'warn'],
+        emulate_tty=True
+    )
+
 
     return LaunchDescription([
         tf_drone_to_rear,
@@ -192,12 +222,14 @@ def generate_launch_description():
         tf_drone_to_top,
         tf_drone_to_bot,
         world_to_drone,
+        drone_to_drone_yaw_only,
         mmwave_bot,
         mmwave_top,
         mmwave_left,
         mmwave_right,
         mmwave_rear,
         mmwave_front,
+        radar_pointcloud_combiner,
         #radar_pointcloud_filter,
         #offboard_control
     ])

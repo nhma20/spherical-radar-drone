@@ -146,7 +146,8 @@ def generate_launch_description():
     radar_pointcloud_combiner = Node(
         package="spherical-radar-drone",
         executable="radar_pointcloud_combiner",
-        arguments=['--ros-args', '--log-level', 'warn']
+        arguments=['--ros-args', '--log-level', 'warn'],
+        emulate_tty=True
     )
 
 

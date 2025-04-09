@@ -129,6 +129,9 @@ public:
 		this->declare_parameter<float>("caution_sphere_radius", 2.5); //1.5); // meters
 		this->get_parameter("caution_sphere_radius", _caution_sphere_radius);
 
+		this->declare_parameter<float>("caution_sphere_max_speed", 1.5); //1.5); // m/s
+		this->get_parameter("caution_sphere_max_speed", _caution_sphere_max_speed);
+
 		this->declare_parameter<float>("safety_sphere_radius", 0.75); // 0.75 meters
 		this->get_parameter("safety_sphere_radius", _safety_sphere_radius);
 
@@ -138,20 +141,32 @@ public:
 		this->declare_parameter<float>("caution_rejection_scalar", 0.5); // 
 		this->get_parameter("caution_rejection_scalar", _caution_rejection_scalar);
 
-		this->declare_parameter<float>("safety_rejection_scalar", 0.5); // 
+		this->declare_parameter<float>("safety_rejection_scalar", 1.0); // 
 		this->get_parameter("safety_rejection_scalar", _safety_rejection_scalar);
 
 		this->declare_parameter<float>("tangential_rejection_scalar", 0.25); // 
 		this->get_parameter("tangential_rejection_scalar", _tangential_rejection_scalar);
 
-		this->declare_parameter<float>("look_ahead_cone_length_width_ratio", 2.5); // 
+		this->declare_parameter<float>("look_ahead_cone_length_width_ratio", 2.0); // 
 		this->get_parameter("look_ahead_cone_length_width_ratio", _look_ahead_cone_length_to_width_ratio);
 
 		this->declare_parameter<float>("braking_safety_factor", 1.5); // 
 		this->get_parameter("braking_safety_factor", _braking_safety_factor);
 
-		this->declare_parameter<float>("emergency_brake_speed_limit", 1.25); // 
+		this->declare_parameter<float>("emergency_brake_speed_limit", 2.00); //1.25 
 		this->get_parameter("emergency_brake_speed_limit", _emergency_brake_speed_limit);
+
+		this->declare_parameter<float>("front_horizontal_fov_deg", 30); // 
+		this->get_parameter("front_horizontal_fov_deg", _front_horizontal_fov_deg);
+		
+		this->declare_parameter<float>("front_vertical_fov_deg", 110); // 
+		this->get_parameter("front_vertical_fov_deg", _front_vertical_fov_deg);
+
+		this->declare_parameter<float>("front_detection_range", 20); // 
+		this->get_parameter("front_detection_range", _front_detection_range);
+
+		this->declare_parameter<float>("side_detection_range", 10); // 
+		this->get_parameter("side_detection_range", _side_detection_range);
 		
 
 
@@ -225,6 +240,9 @@ public:
 
 		pcl::PointCloud<pcl::PointXYZ>::Ptr tmp_cloud (new pcl::PointCloud<pcl::PointXYZ>);
 		this->_combined_points = tmp_cloud;
+
+		_max_allowed_front_speed = sqrt( 2 * _max_decelration *  ( _front_detection_range / _braking_safety_factor ) );
+		_max_allowed_side_speed = sqrt( 2 * _max_decelration *  ( _side_detection_range / _braking_safety_factor ) );
 		
 	}
 
@@ -296,6 +314,13 @@ private:
 	float _look_ahead_cone_length_to_width_ratio;
 	float _braking_safety_factor;
 	float _emergency_brake_speed_limit;
+	float _front_vertical_fov_deg;
+	float _front_horizontal_fov_deg;
+	float _side_detection_range;
+	float _front_detection_range;
+	float _max_allowed_front_speed;
+	float _max_allowed_side_speed;
+	float _caution_sphere_max_speed;
 
 	bool _new_takeoff = true;
 	float _rc_misc_state = -1;
@@ -380,6 +405,7 @@ void OffboardControl::collision_checker(std::vector<size_t> * combined_points_id
 	// Find distances to points within caution sphere
 
 	float point_dist = 0.0;
+	float smallest_distance = 9999.0;
 
 	_in_caution_sphere = 0;
 
@@ -398,13 +424,15 @@ void OffboardControl::collision_checker(std::vector<size_t> * combined_points_id
 				combined_points_idx_in_safety_sphere->push_back(i);
 				safety_distances->push_back(point_dist);
 			}
+		}	
 
-			if (point_dist < *smallest_dist)
-			{
-				*smallest_dist = point_dist;
-			}
-		}		
+		if (point_dist < smallest_distance)
+		{
+			smallest_distance = point_dist;
+		}	
 	}	
+
+	*smallest_dist = smallest_distance;
 }
 
 
@@ -433,13 +461,20 @@ vector_t OffboardControl::speed_limiter() {
 		_input_z_vel
 	);
 
+
+	////////// -------- caution bubble max vel -------- //////////
 	// reduce input velocity vector magnitude inversely proportional to safety sphere proximity to obstacle
-	if (smallest_dist < _caution_sphere_radius)
-	{
-		float closeness = smallest_dist / (_caution_sphere_radius-_safety_sphere_radius); 
-		input_velocity_vector = input_velocity_vector * _min_input_velocity + input_velocity_vector * (1-_min_input_velocity) * closeness;
-	}
+	// if (smallest_dist < _caution_sphere_radius)
+	// {
+	// 	float closeness = smallest_dist / (_caution_sphere_radius-_safety_sphere_radius); 
+	// 	input_velocity_vector = input_velocity_vector * _min_input_velocity + input_velocity_vector * (1-_min_input_velocity) * closeness;
+	// }
 	
+
+
+
+
+
 	// scale vector by original vector magnitude
 	input_velocity_vector = input_velocity_vector * input_velocity_vector_scalar;
 
@@ -449,9 +484,13 @@ vector_t OffboardControl::speed_limiter() {
 	// }
 
 
+
+
+
 	////////// -------- caution bubble -------- //////////
 	// if obstacle inside caution sphere, progressively limit speed until 0 when obstacle touches surface of safety bubble
 	// only reduce input velocity component in direction of obstacle
+
 
 	vector_t caution_rejection_vector_sum(
 		0.0,
@@ -530,16 +569,32 @@ vector_t OffboardControl::speed_limiter() {
 		vector_t obst_vect(
 			_combined_points->at(points_idx_in_safety_sphere.at(i)).x, 
 			_combined_points->at(points_idx_in_safety_sphere.at(i)).y,
-			_combined_points->at(points_idx_in_safety_sphere.at(i)).z
+			-_combined_points->at(points_idx_in_safety_sphere.at(i)).z
 		);
+
+		float factor = 1 - (_safety_sphere_radius / obst_vect.blueNorm());
+		// RCLCPP_INFO(this->get_logger(),  "factor: %f", factor);
 
 		obst_vect.normalize();
 
-		safety_rejection_vector_sum += -obst_vect;
+		safety_rejection_vector_sum += -obst_vect * factor;
 	}
 
 	float timidness = _safety_rejection_scalar;
-	safety_rejection_vector_sum = safety_rejection_vector_sum  * timidness * input_velocity_vector_scalar;
+	safety_rejection_vector_sum = safety_rejection_vector_sum  * timidness; // * input_velocity_vector_scalar;
+
+	// RCLCPP_INFO(this->get_logger(),  "Safety rejection strength %f", safety_rejection_vector_sum.blueNorm());
+	// RCLCPP_INFO(this->get_logger(),  "X: %f", safety_rejection_vector_sum(0));
+	// RCLCPP_INFO(this->get_logger(),  "Y: %f", safety_rejection_vector_sum(1));
+	// RCLCPP_INFO(this->get_logger(),  "Z: %f", safety_rejection_vector_sum(2));
+
+	if (safety_rejection_vector_sum.blueNorm() > 0.01)
+	{
+		return (safety_rejection_vector_sum);
+	}
+
+
+
 
 	vector_t unit_x(
 		1.0,
@@ -575,36 +630,96 @@ vector_t OffboardControl::speed_limiter() {
 
 		obst_vect.normalize();
 
-		vector_t obst_z_crossprod = obst_vect.cross(unit_z);
-		vector_t tangent;
 
-		// go above when above obst, else go below
-		if (obst_vect(2) < 0)
-		{
-			tangent = obst_z_crossprod.cross(obst_vect);
+
+		// only calculate rejection if input vel has component in obstacle direction
+		//	i.e. between parellel and orthogonal (dotprod < 0), but not antiparallel
+
+		vector_t alt_input_velocity_vector(
+			_input_x_vel,
+			_input_y_vel,
+			_input_z_vel
+		);
+
+		if (obst_vect.dot(alt_input_velocity_vector) > 0)
+		{	
+
+			vector_t obst_z_crossprod = obst_vect.cross(unit_z);
+			vector_t tangent;
+
+			// go above when above obst, else go below
+			if (obst_vect(2) < 0)
+			{
+				tangent = obst_z_crossprod.cross(obst_vect);
+			}
+			else {
+				tangent = -obst_z_crossprod.cross(obst_vect); // should only negate z component, not whole vector??
+			}
+
+			float _cautiousness = _tangential_rejection_scalar * input_velocity_vector_scalar;
+			float caution_truncate = distances_in_caution_sphere.at(i)-_safety_sphere_radius;
+
+			// make sure does not go negative when accidentally inside safety sphere
+			if ( caution_truncate < 0.0)
+			{
+				caution_truncate = 0.0;
+			}
+
+			float tangential_strength = _cautiousness * (1.0 - ( caution_truncate / (_caution_sphere_radius-_safety_sphere_radius)) );;
+			
+			tangential_rejection_vector_sum += tangent * tangential_strength;
+
 		}
-		else {
-			tangent = -obst_z_crossprod.cross(obst_vect);
+
+
+
+
+		// do same for drone velocity vector (in addition to input velocity vector)
+
+		// only calculate rejection if drone vel has component in obstacle direction
+		//	i.e. between parellel and orthogonal (dotprod < 0), but not antiparallel
+
+		vector_t drone_velocity(
+			_x_vel,
+			_y_vel,
+			_z_vel
+		);
+
+		if (obst_vect.dot(drone_velocity) > 0)
+		{	
+
+			vector_t obst_z_crossprod = obst_vect.cross(unit_z);
+			vector_t tangent;
+
+			// go above when above obst, else go below
+			if (obst_vect(2) < 0)
+			{
+				tangent = obst_z_crossprod.cross(obst_vect);
+			}
+			else {
+				tangent = -obst_z_crossprod.cross(obst_vect);
+			}
+
+			float _cautiousness = _tangential_rejection_scalar * drone_velocity.blueNorm();
+			float caution_truncate = distances_in_caution_sphere.at(i)-_safety_sphere_radius;
+
+			// make sure does not go negative when accidentally inside safety sphere
+			if ( caution_truncate < 0.0)
+			{
+				caution_truncate = 0.0;
+			}
+
+			float tangential_strength = _cautiousness * (1.0 - ( caution_truncate / (_caution_sphere_radius-_safety_sphere_radius)) );;
+			
+			tangential_rejection_vector_sum += tangent * tangential_strength;
+
 		}
-
-		float _cautiousness = _tangential_rejection_scalar * input_velocity_vector_scalar;
-		float caution_truncate = distances_in_caution_sphere.at(i)-_safety_sphere_radius;
-
-		// make sure does not go negative when accidentally inside safety sphere
-		if ( caution_truncate < 0.0)
-		{
-			caution_truncate = 0.0;
-		}
-
-		float tangential_strength = _cautiousness * (1.0 - ( caution_truncate / (_caution_sphere_radius-_safety_sphere_radius)) );;
-		
-		tangential_rejection_vector_sum += tangent * tangential_strength;
 
 	}
 
 
 
-	////////// -------- velocity rejection -------- //////////
+	////////// -------- velocity prediction rejection -------- //////////
 	// Predict relative motion based on drone velocity (and in future radial velocities)
 	// If obstacle moves too fast towards drone (based on max drone decelaration and perception horizon)
 	//	-> reduce speed to avoid entering safety bubble
@@ -651,7 +766,7 @@ vector_t OffboardControl::speed_limiter() {
 	_look_ahead_cone_length = drone_vel_magnitude * time_to_stop * _braking_safety_factor;
 
 	// only check velocity when over certain speed
-	if ( drone_vel_magnitude > _emergency_brake_speed_limit )
+	if ( drone_vel_magnitude > _emergency_brake_speed_limit && emergency_brake == false ) ////////////
 	{	
 		for (size_t i = 0; i < (size_t)_combined_points->size(); i++)
 		{
@@ -671,11 +786,12 @@ vector_t OffboardControl::speed_limiter() {
 
 			if ( time_to_obst < ( time_to_stop * _braking_safety_factor ) && obst_vel_angle < max_angle)
 			{
-				cone_rejection = -drone_velocity * 5.0;
+				cone_rejection = -drone_velocity * 9999.0;
+				// cone_rejection(2) = -cone_rejection(2); // negation really needed??
 				emergency_brake = true;
-				RCLCPP_INFO(this->get_logger(),  "Look ahead cone length: %f:", _look_ahead_cone_length);
-				RCLCPP_INFO(this->get_logger(),  "Dist to obst: %f VS Drone velocity: %f", point_i.blueNorm(), drone_vel_magnitude);
-				RCLCPP_INFO(this->get_logger(),  "Time to obst: %f VS Time to stop: %f", time_to_obst, ( time_to_stop * _braking_safety_factor ));
+				// RCLCPP_INFO(this->get_logger(),  "Look ahead cone length: %f:", _look_ahead_cone_length);
+				// RCLCPP_INFO(this->get_logger(),  "Dist to obst: %f VS Drone velocity: %f", point_i.blueNorm(), drone_vel_magnitude);
+				// RCLCPP_INFO(this->get_logger(),  "Time to obst: %f VS Time to stop: %f", time_to_obst, ( time_to_stop * _braking_safety_factor ));
 				// RCLCPP_INFO(this->get_logger(),  "Obst vel angle: %f VS Max angle: %f", obst_vel_angle, max_angle);
 				RCLCPP_INFO(this->get_logger(),  "We need to brake now!");
 
@@ -687,7 +803,7 @@ vector_t OffboardControl::speed_limiter() {
 				point_msg.header.frame_id = "drone_yaw_only";
 				point_msg.point.x = point_i(0);
 				point_msg.point.y = point_i(1);
-				point_msg.point.z = point_i(2);
+				point_msg.point.z = point_i(2);  
 
 				_point_pub->publish(point_msg);
 
@@ -701,13 +817,20 @@ vector_t OffboardControl::speed_limiter() {
 		}
 	}
 
-	if (emergency_brake == true && drone_vel_magnitude > _emergency_brake_speed_limit) // param this limit
+	static int brake_ctr = 0;
+
+	if (emergency_brake == true && drone_vel_magnitude > _emergency_brake_speed_limit)
 	{
-		return (cone_rejection+safety_rejection_vector_sum+caution_rejection_vector_sum+tangential_rejection_vector_sum);
+		
+		RCLCPP_INFO(this->get_logger(),  "Emergency braking %d", ++brake_ctr);
+		// return (cone_rejection+safety_rejection_vector_sum+caution_rejection_vector_sum+tangential_rejection_vector_sum);
+		return (cone_rejection+safety_rejection_vector_sum+tangential_rejection_vector_sum);
+		// return (cone_rejection);
 	}
 	else
 	{
 		emergency_brake = false;
+		brake_ctr = 0;
 	}
 
 
@@ -717,36 +840,128 @@ vector_t OffboardControl::speed_limiter() {
 
 	////////// -------- perception horizon speed limitation -------- //////////
 	// make sure maximum speed reflects maximum power line detection distance
+	// atan2(x,y) < 15deg and atan2(x,z) < 55deg
+
+	float xy_angle = atan2(input_velocity_vector(1), input_velocity_vector(0));
+	float xz_angle = atan2(input_velocity_vector(2), input_velocity_vector(0));
+
+	// RCLCPP_INFO(this->get_logger(),  "X: %f, Y: %f, Z: %f", input_velocity_vector(10), input_velocity_vector(1), input_velocity_vector(2));
+	// RCLCPP_INFO(this->get_logger(),  "XY angle: %f:", xy_angle);
+	// RCLCPP_INFO(this->get_logger(),  "XZ angle: %f:", xz_angle);
+
+	// v^2 = 2ad
+
+	// limit front speed depending on radar FOV, detection range, and max deceleration
+	if ( (abs(xy_angle) < _front_horizontal_fov_deg/2) && (abs(xz_angle) < _front_vertical_fov_deg/2))
+	{
+		if (input_velocity_vector_scalar > _max_allowed_front_speed)
+		{
+			float input_overextension_correction = input_velocity_vector_scalar / _max_allowed_front_speed;
+
+			input_velocity_vector = input_velocity_vector / input_overextension_correction;
+		}
+		
+	}
+	else // limit side speed depending on radar FOV, detection range, and max deceleration
+	{
+		if ( input_velocity_vector_scalar > _max_allowed_side_speed)
+		{
+			float input_overextension_correction = input_velocity_vector_scalar / _max_allowed_side_speed;
+
+			input_velocity_vector = input_velocity_vector / input_overextension_correction;
+		}
+	}
 
 
 
 
+	vector_t rejection_sum = input_velocity_vector + safety_rejection_vector_sum + caution_rejection_vector_sum + tangential_rejection_vector_sum;
 
-
-	// quat_t test_quat = findRotation(unit_x_vector, drone_velocity_drone_frame);
-
-	// auto pose_msg = geometry_msgs::msg::PoseStamped();
-	// pose_msg.header.stamp = this->now();
-	// pose_msg.header.frame_id = "drone_yaw_only";
-	// pose_msg.pose.orientation.x = test_quat(0);
-	// pose_msg.pose.orientation.y = test_quat(1);
-	// pose_msg.pose.orientation.z = test_quat(2);
-	// pose_msg.pose.orientation.w = test_quat(3);
-	// pose_msg.pose.position.x = 0.0;
-	// pose_msg.pose.position.y = 0.0;
-	// pose_msg.pose.position.z = 0.0;
-
-	// _pose_pub->publish(pose_msg);
 	
+	////////// -------- caution bubble max vel -------- //////////
+	// // reduce input velocity vector magnitude inversely proportional to safety sphere proximity to obstacle
+	// float rejection_scalar = rejection_sum.blueNorm();
+
+	// // if object within caution sphere, reduce max speed accordingly
+
+	// // RCLCPP_INFO(this->get_logger(),  "Rejection scalar %f:", rejection_scalar);
+
+	// if (_in_caution_sphere && rejection_scalar > _caution_sphere_max_speed)
+	// {
+	// 	rejection_sum.normalize();
+	// 	rejection_sum = rejection_sum * _caution_sphere_max_speed;
+	// 	RCLCPP_INFO(this->get_logger(),  "Max speed 1 %f:", _caution_sphere_max_speed);
+	// }
+	// else if (smallest_dist < _side_detection_range && rejection_scalar > smallest_dist*2/3) // reduce speed proportional to closeness of obst
+	// {
+	// 	rejection_sum.normalize();
+	// 	rejection_sum = rejection_sum * smallest_dist*2/3;// _caution_sphere_max_speed + rejection_sum * rejection_scalar * (smallest_dist / _side_detection_range);
+	// 	RCLCPP_INFO(this->get_logger(),  "Max speed 2 %f:", smallest_dist*2/3);
+	// }
 
 
 
-	// return (input_velocity_vector);
-	// return (input_velocity_vector + cone_rejection);
-	// return (input_velocity_vector + tangential_rejection_vector_sum);
-	// return (input_velocity_vector + caution_rejection_vector_sum);
-	// return (input_velocity_vector + safety_rejection_vector_sum);
-	return (input_velocity_vector + safety_rejection_vector_sum + caution_rejection_vector_sum + tangential_rejection_vector_sum);
+	// find "most dangerous" object (distance to drone as well as angle wrt. velocity)
+	// calculate speed correction based on angle and distance
+	vector_t rejection_sum_neg_y = rejection_sum;
+	rejection_sum_neg_y(1) = -rejection_sum_neg_y(1);
+	float reject_ratio = 1.0;
+	float reject_ratio_min = 1.0;
+
+	for (size_t i = 0; i < _combined_points->size(); i++)
+	{
+		vector_t obst_vect(
+			_combined_points->at(i).x, 
+			_combined_points->at(i).y,
+			_combined_points->at(i).z
+		);
+
+		float obst_vect_l2norm = obst_vect.blueNorm();
+		if (obst_vect_l2norm < _side_detection_range) // why not _caution_sphere_radius?
+		{
+
+			// only calculate rejection if input vel has component in obstacle direction
+			//	i.e. between parellel and orthogonal (dotprod < 0), but not antiparallel
+			// more parallel: dotp>0, orthogonal: dotp=0, more antiparallel: dotp<0
+			float dotp = obst_vect.dot(rejection_sum_neg_y);
+			if (dotp > 0.0)
+			{	
+				// define rejection ratio based on angle to object (smaller angle more harsh) and distance to object (smaller distance more harsh)
+				//  						cos(angle) - smaller angle, closer to 1						smaller distance, closer to 1
+				reject_ratio = 1.0 - ( ( dotp / (rejection_sum.blueNorm() + obst_vect_l2norm )) * ( 1.0 - (obst_vect_l2norm / _side_detection_range)));
+
+				if (reject_ratio < reject_ratio_min)
+				{
+					reject_ratio_min = reject_ratio;
+				}
+			}
+		}
+	}
+
+	if (reject_ratio_min < 0.0)
+	{
+		reject_ratio_min = 0.0;
+	}
+	if (reject_ratio_min > 1.0)
+	{
+		reject_ratio_min = 1.0;
+	}
+
+	// RCLCPP_INFO(this->get_logger(),  "Reject ratio %f:", reject_ratio_min);
+	
+	// find out how much faster than _caution_sphere_max_speed the drone is trying to go, reduce that amount by reject_ratio_min
+	// reject_ratio_min will only be <1 if there is an obstacle to slow down for
+	float rejection_sum_l2norm = rejection_sum.blueNorm();
+	if (rejection_sum_l2norm > _caution_sphere_max_speed)
+	{
+		vector_t limited_out_vel = rejection_sum * (_caution_sphere_max_speed / rejection_sum_l2norm);
+		vector_t reduced_overspeed = ( rejection_sum - limited_out_vel ) * reject_ratio_min;
+		rejection_sum = limited_out_vel + reduced_overspeed;
+	}
+	
+	 
+	return rejection_sum;
+	// return (input_velocity_vector + safety_rejection_vector_sum + caution_rejection_vector_sum + tangential_rejection_vector_sum);
 }
 
 void OffboardControl::input_to_output_setpoint() {

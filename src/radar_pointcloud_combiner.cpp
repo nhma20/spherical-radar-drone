@@ -59,10 +59,10 @@ class RadarPCLFilter : public rclcpp::Node
 		RadarPCLFilter() : Node("radar_pcl_combiner_node") {
 			
 			// Params			
-			this->declare_parameter<int>("pointcloud_update_rate", 20); // Hz
+			this->declare_parameter<int>("pointcloud_update_rate", 25); // Hz
 			this->get_parameter("pointcloud_update_rate", _pointcloud_update_rate);
 
-			this->declare_parameter<int>("pointcloud_clear_rate", 5); // Hz
+			this->declare_parameter<int>("pointcloud_clear_rate", 1); // Hz
 			this->get_parameter("pointcloud_clear_rate", _pointcloud_clear_rate);
 			
 			
@@ -103,7 +103,7 @@ class RadarPCLFilter : public rclcpp::Node
 
 			_timer_clear_pcl = this->create_wall_timer(
 				std::chrono::milliseconds(static_cast<int>((1.0 / _pointcloud_clear_rate) * 1000)),
-				std::bind(&RadarPCLFilter::clear_pointclouds, this));
+				std::bind(&RadarPCLFilter::check_pointclouds, this));
 
 
 		
@@ -190,7 +190,7 @@ class RadarPCLFilter : public rclcpp::Node
 		void add_bot_radar_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 		void add_right_radar_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 		void add_left_radar_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
-		void clear_pointclouds();
+		void check_pointclouds();
 
 		void publish_combined_pointcloud();
 
@@ -218,17 +218,68 @@ class RadarPCLFilter : public rclcpp::Node
 
 		int _pointcloud_update_rate;
 		int _pointcloud_clear_rate;
+
+		int top_cnt = 0;
+		int bot_cnt = 0;
+		int front_cnt = 0;
+		int rear_cnt = 0;
+		int right_cnt = 0;
+		int left_cnt = 0;
 };
 
 
-void RadarPCLFilter::clear_pointclouds() {
-	// clear all clouds periodically to avoid stale points when no new radar clouds received
-	front_cloud->clear();
-	rear_cloud->clear();
-	top_cloud->clear();
-	bot_cloud->clear(); 		
-	right_cloud->clear();
-	left_cloud->clear();
+void RadarPCLFilter::check_pointclouds() {
+	// old function: clear all clouds periodically to avoid stale points when no new radar clouds received
+	// current function: periodically check if radar data is still receieved
+	std::string str_missing_pcl = "";
+	
+	// front_cloud->clear();
+	if (front_cnt < 1)
+	{
+		str_missing_pcl += "FRONT ";
+	}
+	front_cnt = 0;
+	
+	// rear_cloud->clear();
+	if (rear_cnt < 1)
+	{
+		str_missing_pcl += "REAR ";
+	}
+	rear_cnt = 0;
+
+	// top_cloud->clear();
+	if (top_cnt < 1)
+	{
+		str_missing_pcl += "TOP ";
+	}
+	top_cnt = 0;
+
+	// bot_cloud->clear(); 
+	if (bot_cnt < 1)
+	{
+		str_missing_pcl += "BOT ";
+	}
+	bot_cnt = 0;
+	
+	// right_cloud->clear();
+	if (right_cnt < 1)
+	{
+		str_missing_pcl += "RIGHT ";
+	}
+	right_cnt = 0;
+
+	// left_cloud->clear();
+	if (left_cnt < 1)
+	{
+		str_missing_pcl += "LEFT";
+	}
+	left_cnt = 0;
+
+	if (str_missing_pcl != "")
+	{
+		RCLCPP_WARN(this->get_logger(),  "Missing radar data: %s%s%s", "\033[33m", str_missing_pcl.c_str(), "\033[0m"); // YELLOW and RESET
+	}
+	
 }
 
 
@@ -289,6 +340,10 @@ void RadarPCLFilter::publish_combined_pointcloud() {
 
 void RadarPCLFilter::add_front_radar_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
 
+	this->front_cnt++;
+
+	this->front_cloud->clear();
+
 	if (msg->width < 1)
 	{
 		return;
@@ -314,8 +369,6 @@ void RadarPCLFilter::add_front_radar_pointcloud(const sensor_msgs::msg::PointClo
 
 	// transform points in pointcloud
 
-	this->front_cloud->clear();
-
 	RadarPCLFilter::read_pointcloud(msg, front_cloud);
 
 	pcl::transformPointCloud (*front_cloud, *front_cloud, radar_to_drone);
@@ -323,6 +376,10 @@ void RadarPCLFilter::add_front_radar_pointcloud(const sensor_msgs::msg::PointClo
 
 
 void RadarPCLFilter::add_rear_radar_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+
+	this->rear_cnt++;
+
+	this->rear_cloud->clear();
 
 	if (msg->width < 1)
 	{
@@ -349,8 +406,6 @@ void RadarPCLFilter::add_rear_radar_pointcloud(const sensor_msgs::msg::PointClou
 
 	// transform points in pointcloud
 
-	this->rear_cloud->clear();
-
 	RadarPCLFilter::read_pointcloud(msg, rear_cloud);
 
 	pcl::transformPointCloud (*rear_cloud, *rear_cloud, radar_to_drone);
@@ -358,6 +413,10 @@ void RadarPCLFilter::add_rear_radar_pointcloud(const sensor_msgs::msg::PointClou
 
 
 void RadarPCLFilter::add_top_radar_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+
+	this->top_cnt++;
+
+	this->top_cloud->clear();
 
 	if (msg->width < 1)
 	{
@@ -384,8 +443,6 @@ void RadarPCLFilter::add_top_radar_pointcloud(const sensor_msgs::msg::PointCloud
 
 	// transform points in pointcloud
 
-	this->top_cloud->clear();
-
 	RadarPCLFilter::read_pointcloud(msg, top_cloud);
 
 	pcl::transformPointCloud (*top_cloud, *top_cloud, radar_to_drone);
@@ -393,6 +450,10 @@ void RadarPCLFilter::add_top_radar_pointcloud(const sensor_msgs::msg::PointCloud
 
 
 void RadarPCLFilter::add_bot_radar_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+
+	this->bot_cnt++;
+
+	this->bot_cloud->clear();
 
 	if (msg->width < 1)
 	{
@@ -419,8 +480,6 @@ void RadarPCLFilter::add_bot_radar_pointcloud(const sensor_msgs::msg::PointCloud
 
 	// transform points in pointcloud
 
-	this->bot_cloud->clear();
-
 	RadarPCLFilter::read_pointcloud(msg, bot_cloud);
 
 	pcl::transformPointCloud (*bot_cloud, *bot_cloud, radar_to_drone);
@@ -428,6 +487,10 @@ void RadarPCLFilter::add_bot_radar_pointcloud(const sensor_msgs::msg::PointCloud
 
 
 void RadarPCLFilter::add_right_radar_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+
+	this->right_cnt++;
+
+	this->right_cloud->clear();
 
 	if (msg->width < 1)
 	{
@@ -454,8 +517,6 @@ void RadarPCLFilter::add_right_radar_pointcloud(const sensor_msgs::msg::PointClo
 
 	// transform points in pointcloud
 
-	this->right_cloud->clear();
-
 	RadarPCLFilter::read_pointcloud(msg, right_cloud);
 
 	pcl::transformPointCloud (*right_cloud, *right_cloud, radar_to_drone);
@@ -463,6 +524,10 @@ void RadarPCLFilter::add_right_radar_pointcloud(const sensor_msgs::msg::PointClo
 
 
 void RadarPCLFilter::add_left_radar_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+
+	this->left_cnt++;
+
+	this->left_cloud->clear();
 
 	if (msg->width < 1)
 	{
@@ -488,8 +553,6 @@ void RadarPCLFilter::add_left_radar_pointcloud(const sensor_msgs::msg::PointClou
 
 
 	// transform points in pointcloud
-
-	this->left_cloud->clear();
 
 	RadarPCLFilter::read_pointcloud(msg, left_cloud);
 
