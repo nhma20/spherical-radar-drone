@@ -6,7 +6,7 @@ if(NOT CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 99)
 endif()
 
-# Default to C++14
+# Default to C++17
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 14)
 endif()
@@ -39,6 +39,8 @@ find_package(tf2_msgs REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(radar_cable_follower_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
+
+find_package(ament_index_cpp REQUIRED)
 
 find_package(PCL 1.2 REQUIRED)
 
@@ -84,28 +86,6 @@ add_executable(offboard_control
 install(TARGETS offboard_control DESTINATION lib/${PROJECT_NAME})
 
 
-# add_executable(radar_pointcloud_filter
-# src/radar_pointcloud_filter.cpp
-# src/geometry.cpp
-# )
-# target_link_libraries (radar_pointcloud_filter 
-# ${PCL_LIBRARIES}
-# )
-#   ament_target_dependencies(radar_pointcloud_filter
-#   rclcpp
-#   sensor_msgs
-#   px4_msgs
-#   tf2
-#   tf2_ros
-#   tf2_msgs
-#   OpenCV
-#   cv_bridge
-#   radar_cable_follower_msgs
-#   PCL
-# )
-# install(TARGETS radar_pointcloud_filter DESTINATION lib/${PROJECT_NAME})
-
-
 add_executable(radar_pointcloud_combiner
 src/radar_pointcloud_combiner.cpp
 src/geometry.cpp
@@ -135,6 +115,16 @@ src/lidar_to_mmwave.cpp
 install(TARGETS lidar_to_mmwave_node DESTINATION lib/${PROJECT_NAME})
 
 
+add_executable(look_ahead_cone_republisher
+  src/look_ahead_cone_republisher.cpp
+)
+  ament_target_dependencies(look_ahead_cone_republisher
+  rclcpp
+  ament_index_cpp
+  visualization_msgs
+)
+install(TARGETS look_ahead_cone_republisher DESTINATION lib/${PROJECT_NAME})
+
 
 ############
 # Install ##
@@ -144,7 +134,6 @@ ament_python_install_package(${PROJECT_NAME})
 # Install Python executables
 install(PROGRAMS
   scripts/rc_listener.py
-  scripts/radar_data_listener.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -185,5 +174,12 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}/
 )
 
+# # copy look_ahead_cone.stl mesh to home dir
+# install(PROGRAMS
+#   mesh/look_ahead_cone.stl
+#   DESTINATION $ENV{HOME}
+# )
+
 ament_package()
+
 

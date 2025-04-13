@@ -50,12 +50,10 @@
 #include "visualization_msgs/msg/marker_array.hpp"
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/msg/point_field.hpp>
-
 #include <std_msgs/msg/int32.hpp>
-
 #include <nav_msgs/msg/path.hpp>
 
-#include <radar_cable_follower_msgs/msg/tracked_powerlines.hpp>
+// #include <radar_cable_follower_msgs/msg/tracked_powerlines.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/transform_broadcaster.h>
@@ -1235,9 +1233,11 @@ void OffboardControl::publish_markers() {
 	look_ahead_marker.header.stamp = this->now();
 	look_ahead_marker.header.frame_id = "world";
 	look_ahead_marker.ns = "look_ahead";
-	look_ahead_marker.id = 2;
+	look_ahead_marker.id = 20;
 	look_ahead_marker.type = visualization_msgs::msg::Marker::MESH_RESOURCE;
-	look_ahead_marker.mesh_resource = "file://" + ament_index_cpp::get_package_share_directory("spherical-radar-drone") + "/mesh/look_ahead_cone.stl";//"package://pr2_description/meshes/base_v0/base.dae";
+	std::string home_dir = std::getenv("HOME");
+	std::string mesh_path = std::string("file://") + home_dir + std::string("/look_ahead_cone.stl");
+	look_ahead_marker.mesh_resource = mesh_path;
 	look_ahead_marker.action = visualization_msgs::msg::Marker::ADD;
 
 	look_ahead_marker.pose.orientation.x = drone_arrow_rotation(0);
