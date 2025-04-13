@@ -160,10 +160,10 @@ public:
 		this->declare_parameter<float>("front_vertical_fov_deg", 110); // 
 		this->get_parameter("front_vertical_fov_deg", _front_vertical_fov_deg);
 
-		this->declare_parameter<float>("front_detection_range", 20); // 
+		this->declare_parameter<float>("front_detection_range", 16); // 
 		this->get_parameter("front_detection_range", _front_detection_range);
 
-		this->declare_parameter<float>("side_detection_range", 10); // 
+		this->declare_parameter<float>("side_detection_range", 8); // 
 		this->get_parameter("side_detection_range", _side_detection_range);
 		
 
@@ -210,7 +210,7 @@ public:
 			std::bind(&OffboardControl::pclmsg_to_pcl, this, std::placeholders::_1));
 
 
-
+		_out_vel_pose_pub = this->create_publisher<geometry_msgs::msg::PoseStamped>("/out_vel_pose", 10);
 		_pose_pub = this->create_publisher<geometry_msgs::msg::PoseStamped>("/debug_pose", 10);
 		_manual_path_pub = this->create_publisher<nav_msgs::msg::Path>("/manual_path", 10);
 		_offboard_path_pub = this->create_publisher<nav_msgs::msg::Path>("/offboard_path", 10);
@@ -266,6 +266,7 @@ private:
 	rclcpp::Publisher<px4_msgs::msg::TrajectorySetpoint>::SharedPtr _trajectory_setpoint_publisher;
 	rclcpp::Publisher<px4_msgs::msg::VehicleCommand>::SharedPtr _vehicle_command_publisher;
 	rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr _pose_pub;
+	rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr _out_vel_pose_pub;
 	rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr _manual_path_pub;
 	rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr _offboard_path_pub;
 	rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr _marker_pub;
@@ -341,6 +342,7 @@ private:
 	quat_t _input_velocity_orientation_drone_RP; // input velocity quat in drone frame without drone pitch+roll
 	pose_t _drone_pose; // in world coordinates North-West-Up
 	pose_t _alignment_pose;
+	vector_t _out_vel_vector;
 
 	float _hover_height = 2;
 
@@ -460,28 +462,8 @@ vector_t OffboardControl::speed_limiter() {
 	);
 
 
-	////////// -------- caution bubble max vel -------- //////////
-	// reduce input velocity vector magnitude inversely proportional to safety sphere proximity to obstacle
-	// if (smallest_dist < _caution_sphere_radius)
-	// {
-	// 	float closeness = smallest_dist / (_caution_sphere_radius-_safety_sphere_radius); 
-	// 	input_velocity_vector = input_velocity_vector * _min_input_velocity + input_velocity_vector * (1-_min_input_velocity) * closeness;
-	// }
-	
-
-
-
-
-
 	// scale vector by original vector magnitude
 	input_velocity_vector = input_velocity_vector * input_velocity_vector_scalar;
-
-	// if (!_in_caution_sphere) 
-	// {
-	// 	return input_velocity_vector;
-	// }
-
-
 
 
 
@@ -840,8 +822,8 @@ vector_t OffboardControl::speed_limiter() {
 	// make sure maximum speed reflects maximum power line detection distance
 	// atan2(x,y) < 15deg and atan2(x,z) < 55deg
 
-	float xy_angle = atan2(input_velocity_vector(1), input_velocity_vector(0));
-	float xz_angle = atan2(input_velocity_vector(2), input_velocity_vector(0));
+	float xy_angle = atan2(input_velocity_vector(1), input_velocity_vector(0)) * 57.296; // degrees
+	float xz_angle = atan2(input_velocity_vector(2), input_velocity_vector(0)) * 57.296; // degrees
 
 	// RCLCPP_INFO(this->get_logger(),  "X: %f, Y: %f, Z: %f", input_velocity_vector(10), input_velocity_vector(1), input_velocity_vector(2));
 	// RCLCPP_INFO(this->get_logger(),  "XY angle: %f:", xy_angle);
@@ -850,6 +832,7 @@ vector_t OffboardControl::speed_limiter() {
 	// v^2 = 2ad
 
 	// limit front speed depending on radar FOV, detection range, and max deceleration
+
 	if ( (abs(xy_angle) < _front_horizontal_fov_deg/2) && (abs(xz_angle) < _front_vertical_fov_deg/2))
 	{
 		if (input_velocity_vector_scalar > _max_allowed_front_speed)
@@ -858,6 +841,7 @@ vector_t OffboardControl::speed_limiter() {
 
 			input_velocity_vector = input_velocity_vector / input_overextension_correction;
 		}
+		// RCLCPP_INFO(this->get_logger(),  "FRONT cur: %f, max: %f", input_velocity_vector_scalar, _max_allowed_front_speed);
 		
 	}
 	else // limit side speed depending on radar FOV, detection range, and max deceleration
@@ -868,6 +852,7 @@ vector_t OffboardControl::speed_limiter() {
 
 			input_velocity_vector = input_velocity_vector / input_overextension_correction;
 		}
+		// RCLCPP_INFO(this->get_logger(),  "SIDE cur: %f, max: %f", input_velocity_vector_scalar, _max_allowed_side_speed);
 	}
 
 
@@ -900,7 +885,7 @@ vector_t OffboardControl::speed_limiter() {
 
 
 	// find "most dangerous" object (distance to drone as well as angle wrt. velocity)
-	// calculate speed correction based on angle and distance
+	// calculate speed correction based on angle and distance (reduce the more directly towards object)
 	vector_t rejection_sum_neg_y = rejection_sum;
 	rejection_sum_neg_y(1) = -rejection_sum_neg_y(1);
 	float reject_ratio = 1.0;
@@ -993,6 +978,7 @@ void OffboardControl::input_to_output_setpoint() {
 	/////////// new
 	vector_t limited_velocity = OffboardControl::speed_limiter();	
 	vector_t rotated_input_velocity = rotateVector(yaw_rot_mat, limited_velocity);
+	_out_vel_vector = rotated_input_velocity;
 
 	// static pose_t last_given_pose;
 	// static pose_t latched_drone_pose; 
@@ -1144,6 +1130,48 @@ void OffboardControl::publish_markers() {
 	// Set the color -- be sure to set alpha to something non-zero!
 	drone_velocity_marker.color.r = 1.0f;
 	drone_velocity_marker.color.g = 0.0f;
+	drone_velocity_marker.color.b = 0.0f;
+	drone_velocity_marker.color.a = 0.4;
+
+	drone_velocity_marker.lifetime = rclcpp::Duration::from_seconds(0);
+
+	marker_array.markers.push_back(drone_velocity_marker);
+
+
+
+
+	
+	///////////////////////////////////////////////////////////
+	// output velocity arrow
+	visualization_msgs::msg::Marker out_velocity_marker;
+	drone_velocity_marker.header = std_msgs::msg::Header();
+	drone_velocity_marker.header.stamp = this->now();
+	drone_velocity_marker.header.frame_id = "world";
+
+	drone_velocity_marker.ns = "out_vel_arrow";
+	drone_velocity_marker.id = 40;
+
+	drone_velocity_marker.type = visualization_msgs::msg::Marker::ARROW;
+
+	drone_velocity_marker.action = visualization_msgs::msg::Marker::ADD;
+
+	quat_t out_arrow_rotation = findRotation(unit_x_vector, _out_vel_vector);
+
+	drone_velocity_marker.pose.orientation.x = out_arrow_rotation(0);
+	drone_velocity_marker.pose.orientation.y = out_arrow_rotation(1);
+	drone_velocity_marker.pose.orientation.z = out_arrow_rotation(2);
+	drone_velocity_marker.pose.orientation.w = out_arrow_rotation(3);
+	drone_velocity_marker.pose.position.x = _drone_pose.position(0); //0; 
+	drone_velocity_marker.pose.position.y = _drone_pose.position(1); //0;
+	drone_velocity_marker.pose.position.z = _drone_pose.position(2); //0; 
+
+	// Set the scale of the marker -- 1x1x1 here means 1m on a side
+	drone_velocity_marker.scale.x = _out_vel_vector.stableNorm();
+	drone_velocity_marker.scale.y = drone_velocity_marker.scale.x / 5;
+	drone_velocity_marker.scale.z = drone_velocity_marker.scale.x / 5;
+	// Set the color -- be sure to set alpha to something non-zero!
+	drone_velocity_marker.color.r = 1.0f;
+	drone_velocity_marker.color.g = 1.0f;
 	drone_velocity_marker.color.b = 0.0f;
 	drone_velocity_marker.color.a = 0.4;
 

@@ -11,7 +11,6 @@ Panels:
         - /PointCloud22/Topic1
         - /RobotModel1/Description Topic1
         - /MarkerArray1/Namespaces1
-        - /MarkerArray2/Status1
         - /MarkerArray2/Topic1
       Splitter Ratio: 0.5176470875740051
     Tree Height: 1225
@@ -347,6 +346,7 @@ Visualization Manager:
         caution_sphere: true
         input_velocity_arrow: true
         look_ahead: false
+        out_vel_arrow: true
         safety_bubble: true
         velocity_arrow: true
       Topic:
@@ -477,7 +477,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 47.644466400146484
+      Distance: 92.98541259765625
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -492,10 +492,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.04979510232806206
+      Pitch: 0.19479526579380035
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz_default_plugins)
-      Yaw: 1.537408709526062
+      Yaw: 1.3974088430404663
     Saved: ~
 Window Geometry:
   Displays:

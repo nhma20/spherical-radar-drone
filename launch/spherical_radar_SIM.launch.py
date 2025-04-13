@@ -154,6 +154,12 @@ def generate_launch_description():
     )
 
 
+    look_ahead_cone_republisher = Node(
+        package="spherical-radar-drone",
+        executable="look_ahead_cone_republisher",
+    )
+
+
 
     # loads robot description from URDF
     use_sim_time = LaunchConfiguration('use_sime_time', default='false')
@@ -199,5 +205,6 @@ def generate_launch_description():
         offboard_control,
         robot_state_publisher,
         radar_pointcloud_combiner,
+        look_ahead_cone_republisher,
         rviz_node
     ])
