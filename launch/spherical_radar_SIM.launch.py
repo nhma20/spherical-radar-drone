@@ -1,6 +1,6 @@
 from struct import pack
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
+from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, ExecuteProcess
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
@@ -62,13 +62,6 @@ def generate_launch_description():
         executable="drone_frame_broadcaster"
     )
 
-
-
-    radar_pointcloud_filter = Node(
-        package="spherical-radar-drone",
-        executable="radar_pointcloud_filter",
-        parameters=[config]
-    )
 
     offboard_control = Node(
         package="spherical-radar-drone",
@@ -149,6 +142,9 @@ def generate_launch_description():
     radar_pointcloud_combiner = Node(
         package="spherical-radar-drone",
         executable="radar_pointcloud_combiner",
+        parameters=[
+            {'pointcloud_update_rate': 10}
+         ],
         arguments=['--ros-args', '--log-level', 'warn'],
         emulate_tty=True
     )
@@ -159,6 +155,11 @@ def generate_launch_description():
         executable="look_ahead_cone_republisher",
     )
 
+
+    micrortps_agent = ExecuteProcess(
+            cmd=['micrortps_agent', '-t', 'UDP'],
+            output='screen'
+        )
 
 
     # loads robot description from URDF
@@ -188,6 +189,7 @@ def generate_launch_description():
 
 
     return LaunchDescription([
+        micrortps_agent,
         tf_drone_to_rear,
         tf_drone_to_front,
         tf_drone_to_left,
@@ -201,7 +203,6 @@ def generate_launch_description():
         lidar_to_mmwave_left,
         lidar_to_mmwave_top,
         lidar_to_mmwave_bot,
-        #radar_pointcloud_filter,
         offboard_control,
         robot_state_publisher,
         radar_pointcloud_combiner,

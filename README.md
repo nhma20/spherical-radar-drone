@@ -29,7 +29,7 @@ python3 uorb_to_ros_urtps_topics.py -i urtps_bridge_topics.yaml -o ~/ros2_ws/src
 
 followed by 
 ```
-./uorb_to_ros_msgs.py ../ ~/uzh_ws/ros2_ws/src/px4_msgs/msg/
+./uorb_to_ros_msgs.py ../ ~/ros2_ws/src/px4_msgs/msg/
 ```
 
 And build changes by going to `/ros2_ws/src/px4_ros_com/scripts` and run
