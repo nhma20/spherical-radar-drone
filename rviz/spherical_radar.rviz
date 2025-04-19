@@ -10,11 +10,12 @@ Panels:
         - /TF1/Frames1
         - /PointCloud22/Topic1
         - /RobotModel1/Description Topic1
+        - /MarkerArray1
         - /MarkerArray1/Namespaces1
         - /MarkerArray2/Topic1
         - /PointCloud27
         - /Path1/Topic1
-      Splitter Ratio: 0.5176470875740051
+      Splitter Ratio: 0.6294117569923401
     Tree Height: 1225
   - Class: rviz_common/Selection
     Name: Selection
@@ -494,7 +495,7 @@ Visualization Manager:
   Global Options:
     Background Color: 48; 48; 48
     Fixed Frame: world
-    Frame Rate: 30
+    Frame Rate: 20
   Name: root
   Tools:
     - Class: rviz_default_plugins/Interact
@@ -533,25 +534,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 103.32654571533203
+      Distance: 85.45813751220703
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.4796542525291443
-        Y: 4.086541175842285
-        Z: 0.36153149604797363
+        X: 3.7627267837524414
+        Y: -1.4359867572784424
+        Z: -0.4041770398616791
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.35979679226875305
+      Pitch: 0.36979687213897705
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz_default_plugins)
-      Yaw: 0.9074128866195679
+      Yaw: 0.6124106049537659
     Saved: ~
 Window Geometry:
   Displays:
