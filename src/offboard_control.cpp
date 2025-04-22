@@ -50,7 +50,6 @@
 #include "visualization_msgs/msg/marker_array.hpp"
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/msg/point_field.hpp>
-#include <std_msgs/msg/int32.hpp>
 #include <nav_msgs/msg/path.hpp>
 
 // #include <radar_cable_follower_msgs/msg/tracked_powerlines.hpp>
@@ -196,15 +195,6 @@ public:
 			});
 
 
-		_rc_channels_sub = this->create_subscription<px4_msgs::msg::RcChannels>(
-			"/fmu/rc_channels/out",	10,
-            [this](px4_msgs::msg::RcChannels::ConstSharedPtr msg) {
-              _rc_misc_state = msg->channels[7];
-			  _rc_height_state = msg->channels[6];
-			  
-			});
-
-
 		_combined_pcl_sub = this->create_subscription<sensor_msgs::msg::PointCloud2>(
 			"/combined_pcl", 10,
 			std::bind(&OffboardControl::pclmsg_to_pcl, this, std::placeholders::_1));
@@ -322,11 +312,6 @@ private:
 	float _caution_sphere_max_speed;
 
 	bool _new_takeoff = true;
-	float _rc_misc_state = -1;
-	float _prev_rc_misc_state = -2;
-
-	float _rc_height_state = -1;
-	float _prev_rc_height_state = -1;
 
     bool _printed_offboard = false;
 
@@ -452,18 +437,25 @@ vector_t OffboardControl::speed_limiter() {
 
 	collision_checker(&points_idx_in_caution_sphere, &distances_in_caution_sphere, &points_idx_in_safety_sphere, &distances_in_safety_sphere, &smallest_dist);
 
-	float input_velocity_vector_scalar = sqrt(pow((_max_x_vel*_input_x_vel),2)+pow((_max_y_vel*_input_y_vel),2)+pow((_max_z_vel*_input_z_vel),2));
-
-
 	vector_t input_velocity_vector(
-		_input_x_vel,
-		-_input_y_vel,
-		_input_z_vel
+		_input_x_vel * _max_x_vel,
+		-_input_y_vel * _max_y_vel,
+		_input_z_vel * _max_z_vel
 	);
 
+	float input_velocity_vector_scalar = input_velocity_vector.stableNorm();
 
-	// scale vector by original vector magnitude
-	input_velocity_vector = input_velocity_vector * input_velocity_vector_scalar;
+	// float input_velocity_vector_scalar = sqrt(pow((_max_x_vel*_input_x_vel),2)+pow((_max_y_vel*_input_y_vel),2)+pow((_max_z_vel*_input_z_vel),2));
+
+	// vector_t input_velocity_vector(
+	// 	_input_x_vel,
+	// 	-_input_y_vel,
+	// 	_input_z_vel
+	// );
+
+
+	// // scale vector by original vector magnitude
+	// input_velocity_vector = input_velocity_vector * input_velocity_vector_scalar;
 
 
 
@@ -1061,9 +1053,9 @@ void OffboardControl::publish_markers() {
 	);
 
 	vector_t input_velocity_vector(
-		_input_x_vel,
-		_input_y_vel,
-		_input_z_vel
+		_input_x_vel * _max_x_vel,
+		_input_y_vel * _max_y_vel,
+		_input_z_vel * _max_z_vel
 	);
 
 	quat_t arrow_rotation = findRotation(unit_x_vector, input_velocity_vector);
@@ -1077,7 +1069,7 @@ void OffboardControl::publish_markers() {
 	input_velocity_marker.pose.position.z = 0.0; //_drone_pose.position(2); 
 
 	// Set the scale of the marker -- 1x1x1 here means 1m on a side
-	input_velocity_marker.scale.x = sqrt(pow((_max_x_vel*_input_x_vel),2)+pow((_max_y_vel*_input_y_vel),2)+pow((_max_z_vel*_input_z_vel),2));
+	input_velocity_marker.scale.x = input_velocity_vector.stableNorm(); //sqrt(pow((_max_x_vel*_input_x_vel),2)+pow((_max_y_vel*_input_y_vel),2)+pow((_max_z_vel*_input_z_vel),2));
 	input_velocity_marker.scale.y = input_velocity_marker.scale.x / 5;
 	input_velocity_marker.scale.z = input_velocity_marker.scale.x / 5;
 	// Set the color -- be sure to set alpha to something non-zero!
@@ -1124,7 +1116,7 @@ void OffboardControl::publish_markers() {
 	drone_velocity_marker.pose.position.z = _drone_pose.position(2); //0; 
 
 	// Set the scale of the marker -- 1x1x1 here means 1m on a side
-	drone_velocity_marker.scale.x = sqrt(pow(this->_x_vel,2)+pow(this->_y_vel,2)+pow(this->_z_vel,2));
+	drone_velocity_marker.scale.x = drone_velocity_vector.stableNorm(); //(pow(this->_x_vel,2)+pow(this->_y_vel,2)+pow(this->_z_vel,2));
 	drone_velocity_marker.scale.y = drone_velocity_marker.scale.x / 5;
 	drone_velocity_marker.scale.z = drone_velocity_marker.scale.x / 5;
 	// Set the color -- be sure to set alpha to something non-zero!
@@ -1155,7 +1147,14 @@ void OffboardControl::publish_markers() {
 
 	drone_velocity_marker.action = visualization_msgs::msg::Marker::ADD;
 
-	quat_t out_arrow_rotation = findRotation(unit_x_vector, _out_vel_vector);
+	vector_t temp_out_vector(
+		_out_vel_vector(0),
+		-_out_vel_vector(1),
+		_out_vel_vector(2)
+	);
+
+
+	quat_t out_arrow_rotation = findRotation(unit_x_vector, temp_out_vector);
 
 	drone_velocity_marker.pose.orientation.x = out_arrow_rotation(0);
 	drone_velocity_marker.pose.orientation.y = out_arrow_rotation(1);

@@ -73,13 +73,11 @@ add_executable(offboard_control
   Eigen3
   geometry_msgs
   px4_msgs
-  std_msgs
   nav_msgs
   sensor_msgs
   tf2
   tf2_ros
   tf2_msgs
-  radar_cable_follower_msgs
   visualization_msgs
   PCL
 )
