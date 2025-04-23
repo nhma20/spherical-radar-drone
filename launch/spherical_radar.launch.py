@@ -64,7 +64,8 @@ def generate_launch_description():
     # )
     world_to_drone = Node(
         package="spherical-radar-drone",
-        executable="drone_frame_broadcaster"
+        executable="drone_frame_broadcaster",
+        respawn=True
     )
 
     mmwave_front = Node(
@@ -74,13 +75,13 @@ def generate_launch_description():
                 ('/xwr6843_pcl', '/front_pcl'),
             ],
         parameters=[
-            {'cfg_path': '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843ISK_profile_10Hz.cfg'},
+            {'cfg_path': '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843ISK_profile_10Hz_v2.cfg'},
             {'cli_port': '/dev/radar_front_CLI'},
             {'data_port': '/dev/radar_front_DATA'},
             {'frame_id': 'front_frame'},
-            {'radar_azimuth_fov', '120'},
-            {'radar_elevation_fov', '30'},
-            {'minimum_range', '0.2'}
+            {'radar_azimuth_fov': 140},
+            {'radar_elevation_fov': 60},
+            {'minimum_range': 0.2},
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
         output='screen',
@@ -95,13 +96,13 @@ def generate_launch_description():
                 ('/xwr6843_pcl', '/rear_pcl'),
             ],
         parameters=[
-            {'cfg_path': '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz.cfg'},
+            {'cfg_path': '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz_v2.cfg'},
             {'cli_port': '/dev/radar_rear_CLI'},
             {'data_port': '/dev/radar_rear_DATA'},
             {'frame_id': 'rear_frame'},
-            {'radar_azimuth_fov', '120'},
-            {'radar_elevation_fov', '120'},
-            {'minimum_range', '0.2'}
+            {'radar_azimuth_fov': 140},
+            {'radar_elevation_fov': 140},
+            {'minimum_range': 0.2}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
         output='screen',
@@ -116,13 +117,13 @@ def generate_launch_description():
                 ('/xwr6843_pcl', '/top_pcl'),
             ],
         parameters=[
-            {'cfg_path': '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz.cfg'},
+            {'cfg_path': '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz_v2.cfg'},
             {'cli_port': '/dev/radar_top_CLI'},
             {'data_port': '/dev/radar_top_DATA'},
             {'frame_id': 'top_frame'},
-            {'radar_azimuth_fov', '120'},
-            {'radar_elevation_fov', '120'},
-            {'minimum_range', '0.2'}
+            {'radar_azimuth_fov': 140},
+            {'radar_elevation_fov': 140},
+            {'minimum_range': 0.2}
             
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
@@ -138,13 +139,13 @@ def generate_launch_description():
                 ('/xwr6843_pcl', '/bot_pcl')
             ],
         parameters=[
-            {'cfg_path': '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz.cfg'},
+            {'cfg_path': '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz_v2.cfg'},
             {'cli_port': '/dev/radar_bot_CLI'},
             {'data_port': '/dev/radar_bot_DATA'},
             {'frame_id': 'bot_frame'},
-            {'radar_azimuth_fov', '120'},
-            {'radar_elevation_fov', '120'},
-            {'minimum_range', '0.2'}
+            {'radar_azimuth_fov': 140},
+            {'radar_elevation_fov': 140},
+            {'minimum_range': 0.2}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
         output='screen',
@@ -159,13 +160,13 @@ def generate_launch_description():
                 ('/xwr6843_pcl', '/right_pcl'),
             ],
         parameters=[
-            {'cfg_path': '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz.cfg'},
+            {'cfg_path': '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz_v2.cfg'},
             {'cli_port': '/dev/radar_right_CLI'},
             {'data_port': '/dev/radar_right_DATA'},
             {'frame_id': 'right_frame'},
-            {'radar_azimuth_fov', '120'},
-            {'radar_elevation_fov', '120'},
-            {'minimum_range', '0.2'}
+            {'radar_azimuth_fov': 140},
+            {'radar_elevation_fov': 140},
+            {'minimum_range': 0.2}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
         output='screen',
@@ -180,13 +181,13 @@ def generate_launch_description():
                 ('/xwr6843_pcl', '/left_pcl'),
             ],
         parameters=[
-            {'cfg_path': '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz.cfg'},
+            {'cfg_path': '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz_v2.cfg'},
             {'cli_port': '/dev/radar_left_CLI'},
             {'data_port': '/dev/radar_left_DATA'},
             {'frame_id': 'left_frame'},
-            {'radar_azimuth_fov', '120'},
-            {'radar_elevation_fov', '120'},
-            {'minimum_range', '0.2'}
+            {'radar_azimuth_fov': 140},
+            {'radar_elevation_fov': 140},
+            {'minimum_range': 0.2}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
         output='screen',
@@ -207,6 +208,7 @@ def generate_launch_description():
             {'pointcloud_update_rate': 10}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
+        respawn=True,
         emulate_tty=True
     )
 
@@ -218,15 +220,14 @@ def generate_launch_description():
 
 
     return LaunchDescription([
-        # micrortps_agent,
+        micrortps_agent,
+        world_to_drone,
         tf_drone_to_rear,
         tf_drone_to_front,
         tf_drone_to_left,
         tf_drone_to_right,
         tf_drone_to_top,
         tf_drone_to_bot,
-        world_to_drone,
-        # drone_to_drone_yaw_only,
         mmwave_bot,
         mmwave_top,
         mmwave_left,

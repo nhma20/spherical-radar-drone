@@ -52,7 +52,6 @@
 #include <sensor_msgs/msg/point_field.hpp>
 #include <nav_msgs/msg/path.hpp>
 
-// #include <radar_cable_follower_msgs/msg/tracked_powerlines.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/transform_broadcaster.h>
@@ -73,12 +72,10 @@
 #include "geometry.h"
 
 // PCL includes
-#include <pcl/ModelCoefficients.h>
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 #include <pcl/common/transforms.h>
 #include <pcl/common/angles.h>
-#include <pcl/filters/extract_indices.h>
 
 
 #define PI 3.14159265
@@ -231,6 +228,34 @@ public:
 
 		_max_allowed_front_speed = sqrt( 2 * _max_decelration *  ( _front_detection_range / _braking_safety_factor ) );
 		_max_allowed_side_speed = sqrt( 2 * _max_decelration *  ( _side_detection_range / _braking_safety_factor ) );
+
+
+		while(true) {
+
+			static int _t_tries = 0;
+
+			try {
+
+				geometry_msgs::msg::TransformStamped t = tf_buffer_->lookupTransform("world","drone",tf2::TimePointZero);
+
+				RCLCPP_INFO(this->get_logger(), "Found transform world->drone");
+				break;
+
+			} catch(tf2::TransformException & ex) {
+
+				RCLCPP_WARN(this->get_logger(), "Could not get transform world->drone, trying again...");
+				
+				_t_tries++;
+
+				std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+				if( _t_tries > 10) {
+					RCLCPP_FATAL(this->get_logger(), "Failed to get transform world->drone after 10 tries.");
+					throw std::exception();
+				}
+			}
+
+		}
 		
 	}
 
@@ -1152,7 +1177,6 @@ void OffboardControl::publish_markers() {
 		-_out_vel_vector(1),
 		_out_vel_vector(2)
 	);
-
 
 	quat_t out_arrow_rotation = findRotation(unit_x_vector, temp_out_vector);
 

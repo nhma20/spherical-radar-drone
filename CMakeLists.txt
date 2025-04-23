@@ -31,18 +31,15 @@ find_package(fastcdr REQUIRED)
 find_package(fastrtps REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(OpenCV REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_msgs REQUIRED)
-find_package(image_transport REQUIRED)
-find_package(radar_cable_follower_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
 find_package(ament_index_cpp REQUIRED)
 
-find_package(PCL 1.2 REQUIRED)
+find_package(PCL 1.2 REQUIRED COMPONENTS common)
 
 
 include_directories(${PCL_INCLUDE_DIRS})
@@ -137,7 +134,7 @@ install(PROGRAMS
 
 # Export information to downstream packages
 if(ROS_DISTRO IN_LIST ROS_DISTROS)
-  ament_export_dependencies(ament_cmake rclcpp rosidl_default_runtime eigen3_cmake_module Eigen3 px4_msgs geometry_msgs sensor_msgs OpenCV)
+  ament_export_dependencies(ament_cmake rclcpp rosidl_default_runtime eigen3_cmake_module Eigen3 px4_msgs geometry_msgs sensor_msgs)
 else()
   ament_export_dependencies(ament_cmake rclcpp rosidl_default_runtime Eigen3 px4_msgs geometry_msgs sensor_msgs)
 endif()
