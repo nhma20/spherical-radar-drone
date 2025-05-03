@@ -284,17 +284,76 @@ plane_t create_plane(quat_t powerline_direction, point_t drone_xyz) {
 }
 
 
-pose_eul_t pose_NWU_to_NED(pose_eul_t NWU_pose) {
+vector_t vector_NWU_to_NED(vector_t NWU_position) {
 
-    static rotation_matrix_t R_NWU_to_NED = eulToR(orientation_t(-M_PI, 0, 0));
+    // static rotation_matrix_t R_NWU_to_NED = eulToR(orientation_t(-M_PI, 0, 0));
+
+    // vector_t NED_position;
+
+    // NED_position = R_NWU_to_NED * NWU_position;
+
+    // return NED_position;
+
+    vector_t NED_position;
+
+    NED_position(0) = NWU_position(0); 
+    NED_position(1) = -NWU_position(1);
+    NED_position(2) = -NWU_position(2);
+
+    return NED_position;
+}
+
+
+orientation_t orientation_NWU_to_NED(orientation_t NWU_orientation) {
+
+    quat_t NWU_quat = eulToQuat(NWU_orientation);
+
+    quat_t NED_quat = quat_NWU_to_NED(NWU_quat);
+
+    orientation_t NED_orientation = quatToEul(NED_quat);
+
+    return NED_orientation;
+}
+
+
+quat_t quat_NWU_to_NED(quat_t NWU_quat) {
+
+    quat_t NED_quat;
+    NED_quat(0) =  NWU_quat(0);
+    NED_quat(1) = -NWU_quat(1);
+    NED_quat(2) = -NWU_quat(2);
+    NED_quat(3) =  NWU_quat(3);
+    return NED_quat;
+}
+
+
+pose_t pose_quat_NWU_to_NED(pose_t NWU_pose) {
+
+    pose_t NED_pose;
+
+    NED_pose.position = vector_NWU_to_NED(NWU_pose.position);
+
+    NED_pose.quaternion = quat_NWU_to_NED(NWU_pose.quaternion);
+
+    return NED_pose;
+}
+
+
+pose_eul_t pose_eul_NWU_to_NED(pose_eul_t NWU_pose) {
+
+    // static rotation_matrix_t R_NWU_to_NED = eulToR(orientation_t(-M_PI, 0, 0));
 
     pose_eul_t NED_pose;
 
-    NED_pose.position = R_NWU_to_NED * NWU_pose.position;
+    // NED_pose.position = R_NWU_to_NED * NWU_pose.position;
 
-    NED_pose.orientation(0) = NWU_pose.orientation(0); 
-    NED_pose.orientation(1) = -NWU_pose.orientation(1);         // Dirty hack
-    NED_pose.orientation(2) = -NWU_pose.orientation(2);
+    NED_pose.position = vector_NWU_to_NED(NWU_pose.position);
+
+    // NED_pose.orientation(0) = NWU_pose.orientation(0); 
+    // NED_pose.orientation(1) = -NWU_pose.orientation(1);
+    // NED_pose.orientation(2) = -NWU_pose.orientation(2);
+
+    NED_pose.orientation = orientation_NWU_to_NED(NWU_pose.orientation);
 
     return NED_pose;
 }

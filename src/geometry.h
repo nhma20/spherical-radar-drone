@@ -14,9 +14,9 @@
 
 typedef Eigen::Vector3f point_t;
 
-typedef Eigen::Vector3f orientation_t;
+typedef Eigen::Vector3f orientation_t; // r p y
 
-typedef Eigen::Vector4f quat_t;
+typedef Eigen::Vector4f quat_t; // x y z w
 
 typedef Eigen::Vector4f homog_point_t;
 
@@ -108,4 +108,12 @@ transform_t getTransformMatrix(vector_t vec, quat_t quat);
 
 plane_t create_plane(quat_t powerline_direction, point_t drone_xyz);
 
-pose_eul_t pose_NWU_to_NED(pose_eul_t NWU_pose);
+vector_t vector_NWU_to_NED(vector_t NWU_position);
+
+orientation_t orientation_NWU_to_NED(orientation_t NWU_orientation);
+
+quat_t quat_NWU_to_NED(quat_t NWU_quat);
+
+pose_t pose_quat_NWU_to_NED(pose_t NWU_pose);
+
+pose_eul_t pose_eul_NWU_to_NED(pose_eul_t NWU_pose);
