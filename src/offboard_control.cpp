@@ -1013,7 +1013,13 @@ void OffboardControl::input_to_output_setpoint() {
 	float NED_yaw_speed = -_input_yaw_rate; 
 
 	// translate yaw from NWU to NED
-	float NED_yaw = quaternionToYaw( quat_NWU_to_NED( _drone_pose_yaw_only.quaternion )) + NED_yaw_speed;
+	static float NED_yaw = quaternionToYaw( quat_NWU_to_NED( _drone_pose_yaw_only.quaternion )) + NED_yaw_speed;
+
+	// only change yaw when yaw input > 0
+	if (NED_yaw_speed != 0.0)
+	{
+		NED_yaw = quaternionToYaw( quat_NWU_to_NED( _drone_pose_yaw_only.quaternion )) + NED_yaw_speed;
+	}
 
 	msg.x = drone_position_NED(0) + rotated_limited_velocity_NED(0);
 	msg.y = drone_position_NED(1) + rotated_limited_velocity_NED(1);
