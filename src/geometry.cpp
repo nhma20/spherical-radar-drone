@@ -9,7 +9,7 @@
 // Function implementations
 /*****************************************************************************/
 
-
+// project v1 on v2
 vector_t projectVectorOnVector(vector_t v1, vector_t v2) {
 
     vector_t out = ( (v1.dot(v2)) / v2.dot(v2) ) * v2 ;
