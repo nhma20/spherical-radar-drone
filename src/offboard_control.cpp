@@ -115,8 +115,11 @@ public:
 		this->declare_parameter<float>("max_y_vel", 10);
 		this->get_parameter("max_y_vel", _max_y_vel);
 
-		this->declare_parameter<float>("max_z_vel", 3);
-		this->get_parameter("max_z_vel", _max_z_vel);
+		this->declare_parameter<float>("max_z_vel_up", 3);
+		this->get_parameter("max_z_vel_up", _max_z_vel_up);
+
+		this->declare_parameter<float>("max_z_vel_down", 1);
+		this->get_parameter("max_z_vel_down", _max_z_vel_down);
 
 		this->declare_parameter<float>("max_yaw_rate", 1.570796); // rad/s
 		this->get_parameter("max_yaw_rate", _max_yaw_rate);
@@ -312,7 +315,8 @@ private:
 	float _max_decelration;
 	float _max_x_vel;
 	float _max_y_vel;
-	float _max_z_vel;
+	float _max_z_vel_up;
+	float _max_z_vel_down;
 	float _max_yaw_rate;
 	float _input_x_vel = 0.0;
 	float _input_y_vel = 0.0;
@@ -467,9 +471,17 @@ vector_t OffboardControl::speed_limiter() {
 
 	vector_t input_velocity_vector(
 		_input_x_vel * _max_x_vel,
-		_input_y_vel * _max_y_vel, //- 
-		_input_z_vel * _max_z_vel
+		_input_y_vel * _max_y_vel,
+		0.0 // if _input_z_vel>0 use _max_z_vel_up, vice versa
 	);
+
+	if (_input_z_vel > 0.0)
+	{
+		input_velocity_vector(2) = _input_z_vel * _max_z_vel_up;
+	}
+	else {
+		input_velocity_vector(2) = _input_z_vel * _max_z_vel_down;
+	}
 
 	float input_velocity_vector_scalar = input_velocity_vector.stableNorm();
 
@@ -708,7 +720,7 @@ vector_t OffboardControl::speed_limiter() {
 				tangent = -obst_tangent.normalized();
 			}
 
-			tangent = tangent * (normalized_obst_dot_drone_vel + 0.25) * 2.5;
+			tangent = tangent * (normalized_obst_dot_drone_vel + 0.35) * 1.5;
 
 			float _cautiousness = _tangential_rejection_scalar * drone_velocity_drone_frame.stableNorm();
 			float caution_truncate = distances_in_caution_sphere.at(i)-_safety_sphere_radius;
@@ -893,10 +905,42 @@ vector_t OffboardControl::speed_limiter() {
 		// RCLCPP_INFO(this->get_logger(),  "SIDE cur: %f, max: %f", input_velocity_vector_scalar, _max_allowed_side_speed);
 	}
 
+	// do not change input_velocity_vector abruptly to avoid drone twitching
+	// instead use smoothing
+	// static const int array_size = 10;
+	// static vector_t input_vel_array[array_size];
+	// static int input_vel_array_pointer = 0;
 
+	// static vector_t array_sum(
+	// 	0.0,
+	// 	0.0,
+	// 	0.0
+	// );
+	// // new sum is simply old sum plus incoming value minus outgoing value
+	// array_sum = (array_sum + input_velocity_vector - input_vel_array[input_vel_array_pointer]);
+
+	// vector_t averaged_input_velocity_vector = array_sum / (float)array_size;
+
+	// input_vel_array[input_vel_array_pointer++] = input_velocity_vector;
+	// input_vel_array_pointer = input_vel_array_pointer % array_size;
+
+	// RCLCPP_INFO(this->get_logger(),  "\n");
+	// for (size_t i = 0; i < array_size; i++)
+	// {
+	// 	RCLCPP_INFO(this->get_logger(),  "Array %d X: %f, Y: %f, Z: %f", i, input_vel_array[i](0), input_vel_array[i](1), input_vel_array[i](2));
+	// }
+	
+	// RCLCPP_INFO(this->get_logger(),  "Smoothed in vel X: %f, Y: %f, Z: %f", averaged_input_velocity_vector(0), averaged_input_velocity_vector(1), averaged_input_velocity_vector(2));
+	
+
+	static vector_t averaged_input_velocity_vector(0.0, 0.0, 0.0);
+		
+	averaged_input_velocity_vector = 0.85f * averaged_input_velocity_vector + 0.15f * input_velocity_vector;
+
+	// RCLCPP_INFO(this->get_logger(),  "Smoothed in vel X: %f, Y: %f, Z: %f", averaged_input_velocity_vector(0), averaged_input_velocity_vector(1), averaged_input_velocity_vector(2));
 
 	// sum input velocity and all safety adjustments
-	vector_t rejection_sum = input_velocity_vector + safety_rejection_vector_sum + caution_rejection_vector_sum + tangential_rejection_vector_sum;
+	vector_t rejection_sum = averaged_input_velocity_vector + safety_rejection_vector_sum + caution_rejection_vector_sum + tangential_rejection_vector_sum;
 
 
 	// find "most dangerous" object (distance to drone as well as angle wrt. velocity)
@@ -1021,9 +1065,9 @@ void OffboardControl::input_to_output_setpoint() {
 		NED_yaw = quaternionToYaw( quat_NWU_to_NED( _drone_pose_yaw_only.quaternion )) + NED_yaw_speed;
 	}
 
-	msg.x = drone_position_NED(0) + rotated_limited_velocity_NED(0);
-	msg.y = drone_position_NED(1) + rotated_limited_velocity_NED(1);
-	msg.z = drone_position_NED(2) + rotated_limited_velocity_NED(2);
+	msg.x = drone_position_NED(0); // + rotated_limited_velocity_NED(0)/10.0;
+	msg.y = drone_position_NED(1); // + rotated_limited_velocity_NED(1)/10.0;
+	msg.z = drone_position_NED(2); // + rotated_limited_velocity_NED(2)/10.0;
 	msg.yaw = NED_yaw;
 	msg.yawspeed = NED_yaw_speed;
 	msg.vx = rotated_limited_velocity_NED(0); 
@@ -1061,8 +1105,17 @@ void OffboardControl::publish_markers() {
 	vector_t input_velocity_vector(
 		_input_x_vel * _max_x_vel,
 		_input_y_vel * _max_y_vel,
-		_input_z_vel * _max_z_vel
+		0.0 // if _input_z_vel>0 use _max_z_vel_up, vice versa
 	);
+
+	if (_input_z_vel > 0.0)
+	{
+		input_velocity_vector(2) = _input_z_vel * _max_z_vel_up;
+	}
+	else {
+		input_velocity_vector(2) = _input_z_vel * _max_z_vel_down;
+	}
+	
 
 	quat_t arrow_rotation = findRotation(unit_x_vector, input_velocity_vector);
 
@@ -1075,7 +1128,7 @@ void OffboardControl::publish_markers() {
 	input_velocity_marker.pose.position.z = 0.0; //_drone_pose.position(2); 
 
 	// Set the scale of the marker -- 1x1x1 here means 1m on a side
-	input_velocity_marker.scale.x = input_velocity_vector.stableNorm(); //sqrt(pow((_max_x_vel*_input_x_vel),2)+pow((_max_y_vel*_input_y_vel),2)+pow((_max_z_vel*_input_z_vel),2));
+	input_velocity_marker.scale.x = input_velocity_vector.stableNorm(); 
 	input_velocity_marker.scale.y = input_velocity_marker.scale.x / 5;
 	input_velocity_marker.scale.z = input_velocity_marker.scale.x / 5;
 	// Set the color -- be sure to set alpha to something non-zero!
@@ -1416,6 +1469,8 @@ void OffboardControl::flight_state_machine() {
 
 	OffboardControl::update_drone_pose();
 
+	input_to_output_setpoint(); // does not control drone unless in offboard
+
 	// If drone not armed (from external controller) and put in offboard mode, do nothing
 	if (_nav_state != 14) 
 	{
@@ -1445,7 +1500,7 @@ void OffboardControl::flight_state_machine() {
 	{
 		RCLCPP_INFO(this->get_logger(), "\n \nEntering offboard control \n");
 		_printed_offboard = true;
-		this->arm();
+		// this->arm();
 	}
 
 	this->get_parameter("take_off_to_height", _takeoff_height);
@@ -1464,7 +1519,7 @@ void OffboardControl::flight_state_machine() {
 			RCLCPP_INFO(this->get_logger(), "\n \nManual offboard mode \n");
 		}
 		// publish_tracking_setpoint();
-		input_to_output_setpoint();
+		// input_to_output_setpoint();
 
 	}
 
@@ -1721,7 +1776,28 @@ void OffboardControl::publish_setpoint(px4_msgs::msg::TrajectorySetpoint msg) co
 
 	publish_offboard_control_mode();
 
-	_trajectory_setpoint_publisher->publish(msg);
+	if (_in_offboard)
+	{
+	
+		_trajectory_setpoint_publisher->publish(msg);
+
+	}
+	else {
+
+		px4_msgs::msg::TrajectorySetpoint NaN_msg{};
+		NaN_msg.timestamp = _timestamp.load();
+		NaN_msg.x = std::numeric_limits<float>::quiet_NaN();
+		NaN_msg.y = std::numeric_limits<float>::quiet_NaN();
+		NaN_msg.z = std::numeric_limits<float>::quiet_NaN();
+		NaN_msg.yaw = std::numeric_limits<float>::quiet_NaN();
+		NaN_msg.yawspeed = std::numeric_limits<float>::quiet_NaN();
+		NaN_msg.vx = std::numeric_limits<float>::quiet_NaN();
+		NaN_msg.vy = std::numeric_limits<float>::quiet_NaN();
+		NaN_msg.vz = std::numeric_limits<float>::quiet_NaN();
+
+		_trajectory_setpoint_publisher->publish(NaN_msg);
+
+	}
 }
 
 
