@@ -1060,7 +1060,7 @@ void OffboardControl::input_to_output_setpoint() {
 	static float NED_yaw = quaternionToYaw( quat_NWU_to_NED( _drone_pose_yaw_only.quaternion )) + NED_yaw_speed;
 
 	// only change yaw when yaw input > 0
-	if (NED_yaw_speed != 0.0)
+	if (NED_yaw_speed != 0.0 || _in_offboard == false)
 	{
 		NED_yaw = quaternionToYaw( quat_NWU_to_NED( _drone_pose_yaw_only.quaternion )) + NED_yaw_speed;
 	}
@@ -1774,26 +1774,45 @@ void OffboardControl::publish_hold_setpoint() const {
  */
 void OffboardControl::publish_setpoint(px4_msgs::msg::TrajectorySetpoint msg) const {
 
-	publish_offboard_control_mode();
-
 	if (_in_offboard)
 	{
-	
+		
+		publish_offboard_control_mode();
 		_trajectory_setpoint_publisher->publish(msg);
 
 	}
 	else {
 
+		px4_msgs::msg::OffboardControlMode msg{};
+		msg.timestamp = _timestamp.load();
+		msg.position = true;
+		msg.velocity = false;
+		msg.acceleration = false;
+		msg.attitude = false;
+		msg.body_rate = false;	
+		_offboard_control_mode_publisher->publish(msg);
+
+		pose_eul_t NWU_to_NED_pose;
+		NWU_to_NED_pose.position = _drone_pose.position; 
+		NWU_to_NED_pose.orientation = quatToEul(_drone_pose.quaternion);	
+		NWU_to_NED_pose = pose_eul_NWU_to_NED(NWU_to_NED_pose);
+
 		px4_msgs::msg::TrajectorySetpoint NaN_msg{};
 		NaN_msg.timestamp = _timestamp.load();
-		NaN_msg.x = std::numeric_limits<float>::quiet_NaN();
-		NaN_msg.y = std::numeric_limits<float>::quiet_NaN();
-		NaN_msg.z = std::numeric_limits<float>::quiet_NaN();
-		NaN_msg.yaw = std::numeric_limits<float>::quiet_NaN();
+		NaN_msg.x = NWU_to_NED_pose.position(0);
+		NaN_msg.y = NWU_to_NED_pose.position(1);
+		NaN_msg.z = NWU_to_NED_pose.position(2);
+		NaN_msg.yaw = (float)NWU_to_NED_pose.orientation(2);
 		NaN_msg.yawspeed = std::numeric_limits<float>::quiet_NaN();
 		NaN_msg.vx = std::numeric_limits<float>::quiet_NaN();
 		NaN_msg.vy = std::numeric_limits<float>::quiet_NaN();
 		NaN_msg.vz = std::numeric_limits<float>::quiet_NaN();
+		NaN_msg.acceleration[0] = std::numeric_limits<float>::quiet_NaN();
+		NaN_msg.acceleration[1] = std::numeric_limits<float>::quiet_NaN();
+		NaN_msg.acceleration[2] = std::numeric_limits<float>::quiet_NaN();
+		NaN_msg.jerk[0] = std::numeric_limits<float>::quiet_NaN();
+		NaN_msg.jerk[1] = std::numeric_limits<float>::quiet_NaN();
+		NaN_msg.jerk[2] = std::numeric_limits<float>::quiet_NaN();
 
 		_trajectory_setpoint_publisher->publish(NaN_msg);
 
