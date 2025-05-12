@@ -24,6 +24,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/common/transforms.h>
 #include <pcl/common/angles.h>
+#include <pcl/filters/extract_indices.h>
 
 
 
@@ -45,6 +46,12 @@ class RadarPCLFilter : public rclcpp::Node
 
 			this->declare_parameter<int>("pointcloud_clear_rate", 1); // Hz
 			this->get_parameter("pointcloud_clear_rate", _pointcloud_clear_rate);
+
+			this->declare_parameter<int>("snr_cutoff", 10); // dB
+			this->get_parameter("snr_cutoff", _snr_cutoff);
+
+			this->declare_parameter<float>("allowed_doppler_vs_drone_vel_mismatch", 2.0); // ms
+			this->get_parameter("allowed_doppler_vs_drone_vel_mismatch", _allowed_doppler_vs_drone_vel_mismatch);
 			
 			
 
@@ -86,7 +93,13 @@ class RadarPCLFilter : public rclcpp::Node
 				std::chrono::milliseconds(static_cast<int>((1.0 / _pointcloud_clear_rate) * 1000)),
 				std::bind(&RadarPCLFilter::check_pointclouds, this));
 
-
+			_vehicle_odometry_subscriber = create_subscription<px4_msgs::msg::VehicleOdometry>(
+				"/fmu/vehicle_odometry/out", 10,
+				[this](px4_msgs::msg::VehicleOdometry::ConstSharedPtr msg) {
+					_x_vel = msg->vx; 
+					_y_vel = -msg->vy; // Negated to get NWU
+					_z_vel = -msg->vz; // Negated to get NWU
+				});
 		
 			while(true) {
 
@@ -151,6 +164,8 @@ class RadarPCLFilter : public rclcpp::Node
 		rclcpp::TimerBase::SharedPtr _timer_pcl;
 		rclcpp::TimerBase::SharedPtr _timer_clear_pcl;
 
+		rclcpp::Subscription<px4_msgs::msg::VehicleOdometry>::SharedPtr _vehicle_odometry_subscriber;
+
 		rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr combined_pointcloud_pub;
 
 		rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr front_pcl_subscription_;
@@ -172,13 +187,19 @@ class RadarPCLFilter : public rclcpp::Node
 		void add_right_radar_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 		void add_left_radar_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 		void check_pointclouds();
-
+		void update_drone_pose();
 		void publish_combined_pointcloud();
 
 		void create_pointcloud_msg(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, sensor_msgs::msg::PointCloud2 * pcl_msg, std::string frame_id);
 
 		void read_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg, 
 										pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
+
+		void read_pointcloud_and_sideinfo(const sensor_msgs::msg::PointCloud2::SharedPtr msg,
+											pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
+											std::vector<float> &velocities,
+											std::vector<float> &snrs,
+											std::vector<float> &noises);
 
 		pcl::PointCloud<pcl::PointXYZ>::Ptr front_cloud;
 		pcl::PointCloud<pcl::PointXYZ>::Ptr rear_cloud;
@@ -199,6 +220,8 @@ class RadarPCLFilter : public rclcpp::Node
 
 		int _pointcloud_update_rate;
 		int _pointcloud_clear_rate;
+		float _allowed_doppler_vs_drone_vel_mismatch;
+		int _snr_cutoff;
 
 		int top_cnt = 0;
 		int bot_cnt = 0;
@@ -206,53 +229,60 @@ class RadarPCLFilter : public rclcpp::Node
 		int rear_cnt = 0;
 		int right_cnt = 0;
 		int left_cnt = 0;
+
+		float _x_vel = 0.0; // NWU
+		float _y_vel = 0.0; // NWU
+		float _z_vel = 0.0; // NWU
+
+		pose_t _drone_pose_yaw_only; // in world coordinates North-West-Up
+
+		float _doppler_margin = 2.0; // m/s
 };
 
 
 void RadarPCLFilter::check_pointclouds() {
-	// old function: clear all clouds periodically to avoid stale points when no new radar clouds received
-	// current function: periodically check if radar data is still receieved
+	// periodically check if radar data is still receieved, clear if stale data
 	std::string str_missing_pcl = "";
 	
-	// front_cloud->clear();
 	if (front_cnt < 1)
 	{
 		str_missing_pcl += "FRONT ";
+		this->front_cloud->clear();
 	}
 	front_cnt = 0;
 	
-	// rear_cloud->clear();
 	if (rear_cnt < 1)
 	{
 		str_missing_pcl += "REAR ";
+		this->rear_cloud->clear();
 	}
 	rear_cnt = 0;
 
-	// top_cloud->clear();
 	if (top_cnt < 1)
 	{
 		str_missing_pcl += "TOP ";
+		this->top_cloud->clear();
 	}
 	top_cnt = 0;
 
-	// bot_cloud->clear(); 
 	if (bot_cnt < 1)
 	{
 		str_missing_pcl += "BOT ";
+		this->bot_cloud->clear();
 	}
 	bot_cnt = 0;
 	
-	// right_cloud->clear();
 	if (right_cnt < 1)
 	{
 		str_missing_pcl += "RIGHT ";
+		this->right_cloud->clear();
 	}
 	right_cnt = 0;
 
-	// left_cloud->clear();
 	if (left_cnt < 1)
 	{
 		str_missing_pcl += "LEFT";
+		this->left_cloud->clear();
 	}
 	left_cnt = 0;
 
@@ -280,8 +310,6 @@ void RadarPCLFilter::publish_combined_pointcloud() {
 	// RCLCPP_INFO(this->get_logger(), "Size %d", right_cloud->size());
 	*combined_cloud += *left_cloud;
 	// RCLCPP_INFO(this->get_logger(), "Size %d", left_cloud->size());
-
-	// RCLCPP_INFO(this->get_logger(), "End\n");
 
 
 	homog_transform_t radar_to_drone;
@@ -348,11 +376,68 @@ void RadarPCLFilter::add_front_radar_pointcloud(const sensor_msgs::msg::PointClo
 	radar_to_drone = getTransformMatrix(_t_xyz, _t_rot);
 
 
+	std::vector<float> velocities, snrs, noises; 
+
+	RadarPCLFilter::read_pointcloud_and_sideinfo(msg, front_cloud, velocities, snrs, noises);
+
 	// transform points in pointcloud
-
-	RadarPCLFilter::read_pointcloud(msg, front_cloud);
-
 	pcl::transformPointCloud (*front_cloud, *front_cloud, radar_to_drone);
+
+
+	RadarPCLFilter::update_drone_pose(); 
+
+	float drone_yaw_f = quatToEul(_drone_pose_yaw_only.quaternion)(2);
+
+	// find drone yaw and subtract from world yaw
+	orientation_t drone_yaw(
+		0.0, 
+		0.0,
+		-drone_yaw_f
+	); 
+
+	rotation_matrix_t yaw_rotation = quatToMat(eulToQuat(drone_yaw));
+
+	vector_t drone_velocity(
+		_x_vel,
+		_y_vel,
+		_z_vel
+	);
+
+	// get drone velocity in local drone frame (no roll and pitch)
+	vector_t drone_velocity_drone_frame = rotateVector(yaw_rotation, drone_velocity);
+
+	// check if each point's radial dopper velocity is within expected region wrt. drone velocty - else remove
+	pcl::PointIndices::Ptr indices(new pcl::PointIndices);
+	for (size_t i = 0; i < velocities.size(); i++)
+	{
+		vector_t obst_vect(
+			this->front_cloud->at(i).x, 
+			this->front_cloud->at(i).y, 
+			this->front_cloud->at(i).z
+		);
+
+		// 1) form the line‐of‐sight unit vector:
+		vector_t obst_vect_normalized = obst_vect.normalized();
+
+		// 2) signed radial velocity = dot(drone_velocity, los)
+		float ego_radial_velocity = obst_vect_normalized.dot(drone_velocity_drone_frame);
+
+		// 3) compare that signed value to your measured Doppler (also signed!)
+		if ( abs(ego_radial_velocity - velocities.at(i)) > _doppler_margin )
+		{
+			indices->indices.push_back(static_cast<int>(i));
+		}
+		
+	}
+
+	// Set up the extractor
+    pcl::ExtractIndices<pcl::PointXYZ> extract;
+    extract.setInputCloud(front_cloud);
+    extract.setIndices(indices);
+    extract.setNegative(true);    // remove, not keep
+
+    // Perform filtering in place
+    extract.filter(*front_cloud);
 }
 
 
@@ -385,11 +470,68 @@ void RadarPCLFilter::add_rear_radar_pointcloud(const sensor_msgs::msg::PointClou
 	radar_to_drone = getTransformMatrix(_t_xyz, _t_rot);
 
 
+	std::vector<float> velocities, snrs, noises; 
+
+	RadarPCLFilter::read_pointcloud_and_sideinfo(msg, rear_cloud, velocities, snrs, noises);
+
 	// transform points in pointcloud
-
-	RadarPCLFilter::read_pointcloud(msg, rear_cloud);
-
 	pcl::transformPointCloud (*rear_cloud, *rear_cloud, radar_to_drone);
+
+
+	RadarPCLFilter::update_drone_pose(); 
+
+	float drone_yaw_f = quatToEul(_drone_pose_yaw_only.quaternion)(2);
+
+	// find drone yaw and subtract from world yaw
+	orientation_t drone_yaw(
+		0.0, 
+		0.0,
+		-drone_yaw_f
+	); 
+
+	rotation_matrix_t yaw_rotation = quatToMat(eulToQuat(drone_yaw));
+
+	vector_t drone_velocity(
+		_x_vel,
+		_y_vel,
+		_z_vel
+	);
+
+	// get drone velocity in local drone frame (no roll and pitch)
+	vector_t drone_velocity_drone_frame = rotateVector(yaw_rotation, drone_velocity);
+
+	// check if each point's radial dopper velocity is within expected region wrt. drone velocty - else remove
+	pcl::PointIndices::Ptr indices(new pcl::PointIndices);
+	for (size_t i = 0; i < velocities.size(); i++)
+	{
+		vector_t obst_vect(
+			this->rear_cloud->at(i).x, 
+			this->rear_cloud->at(i).y, 
+			this->rear_cloud->at(i).z
+		);
+
+		// 1) form the line‐of‐sight unit vector:
+		vector_t obst_vect_normalized = obst_vect.normalized();
+
+		// 2) signed radial velocity = dot(drone_velocity, los)
+		float ego_radial_velocity = obst_vect_normalized.dot(drone_velocity_drone_frame);
+
+		// 3) compare that signed value to your measured Doppler (also signed!)
+		if ( abs(ego_radial_velocity - velocities.at(i)) > _doppler_margin )
+		{
+			indices->indices.push_back(static_cast<int>(i));
+		}
+		
+	}
+
+	// Set up the extractor
+    pcl::ExtractIndices<pcl::PointXYZ> extract;
+    extract.setInputCloud(rear_cloud);
+    extract.setIndices(indices);
+    extract.setNegative(true);    // remove, not keep
+
+    // Perform filtering in place
+    extract.filter(*rear_cloud);
 }
 
 
@@ -422,11 +564,68 @@ void RadarPCLFilter::add_top_radar_pointcloud(const sensor_msgs::msg::PointCloud
 	radar_to_drone = getTransformMatrix(_t_xyz, _t_rot);
 
 
+	std::vector<float> velocities, snrs, noises; 
+
+	RadarPCLFilter::read_pointcloud_and_sideinfo(msg, top_cloud, velocities, snrs, noises);
+
 	// transform points in pointcloud
-
-	RadarPCLFilter::read_pointcloud(msg, top_cloud);
-
 	pcl::transformPointCloud (*top_cloud, *top_cloud, radar_to_drone);
+
+
+	RadarPCLFilter::update_drone_pose(); 
+
+	float drone_yaw_f = quatToEul(_drone_pose_yaw_only.quaternion)(2);
+
+	// find drone yaw and subtract from world yaw
+	orientation_t drone_yaw(
+		0.0, 
+		0.0,
+		-drone_yaw_f
+	); 
+
+	rotation_matrix_t yaw_rotation = quatToMat(eulToQuat(drone_yaw));
+
+	vector_t drone_velocity(
+		_x_vel,
+		_y_vel,
+		_z_vel
+	);
+
+	// get drone velocity in local drone frame (no roll and pitch)
+	vector_t drone_velocity_drone_frame = rotateVector(yaw_rotation, drone_velocity);
+
+	// check if each point's radial dopper velocity is within expected region wrt. drone velocty - else remove
+	pcl::PointIndices::Ptr indices(new pcl::PointIndices);
+	for (size_t i = 0; i < velocities.size(); i++)
+	{
+		vector_t obst_vect(
+			this->top_cloud->at(i).x, 
+			this->top_cloud->at(i).y, 
+			this->top_cloud->at(i).z
+		);
+
+		// 1) form the line‐of‐sight unit vector:
+		vector_t obst_vect_normalized = obst_vect.normalized();
+
+		// 2) signed radial velocity = dot(drone_velocity, los)
+		float ego_radial_velocity = obst_vect_normalized.dot(drone_velocity_drone_frame);
+
+		// 3) compare that signed value to your measured Doppler (also signed!)
+		if ( abs(ego_radial_velocity - velocities.at(i)) > _doppler_margin )
+		{
+			indices->indices.push_back(static_cast<int>(i));
+		}
+		
+	}
+
+	// Set up the extractor
+    pcl::ExtractIndices<pcl::PointXYZ> extract;
+    extract.setInputCloud(top_cloud);
+    extract.setIndices(indices);
+    extract.setNegative(true);    // remove, not keep
+
+    // Perform filtering in place
+    extract.filter(*top_cloud);
 }
 
 
@@ -458,12 +657,68 @@ void RadarPCLFilter::add_bot_radar_pointcloud(const sensor_msgs::msg::PointCloud
 
 	radar_to_drone = getTransformMatrix(_t_xyz, _t_rot);
 
+	std::vector<float> velocities, snrs, noises; 
+
+	RadarPCLFilter::read_pointcloud_and_sideinfo(msg, bot_cloud, velocities, snrs, noises);
 
 	// transform points in pointcloud
-
-	RadarPCLFilter::read_pointcloud(msg, bot_cloud);
-
 	pcl::transformPointCloud (*bot_cloud, *bot_cloud, radar_to_drone);
+
+
+	RadarPCLFilter::update_drone_pose(); 
+
+	float drone_yaw_f = quatToEul(_drone_pose_yaw_only.quaternion)(2);
+
+	// find drone yaw and subtract from world yaw
+	orientation_t drone_yaw(
+		0.0, 
+		0.0,
+		-drone_yaw_f
+	); 
+
+	rotation_matrix_t yaw_rotation = quatToMat(eulToQuat(drone_yaw));
+
+	vector_t drone_velocity(
+		_x_vel,
+		_y_vel,
+		_z_vel
+	);
+
+	// get drone velocity in local drone frame (no roll and pitch)
+	vector_t drone_velocity_drone_frame = rotateVector(yaw_rotation, drone_velocity);
+
+	// check if each point's radial dopper velocity is within expected region wrt. drone velocty - else remove
+	pcl::PointIndices::Ptr indices(new pcl::PointIndices);
+	for (size_t i = 0; i < velocities.size(); i++)
+	{
+		vector_t obst_vect(
+			this->bot_cloud->at(i).x, 
+			this->bot_cloud->at(i).y, 
+			this->bot_cloud->at(i).z
+		);
+
+		// 1) form the line‐of‐sight unit vector:
+		vector_t obst_vect_normalized = obst_vect.normalized();
+
+		// 2) signed radial velocity = dot(drone_velocity, los)
+		float ego_radial_velocity = obst_vect_normalized.dot(drone_velocity_drone_frame);
+
+		// 3) compare that signed value to your measured Doppler (also signed!)
+		if ( abs(ego_radial_velocity - velocities.at(i)) > _doppler_margin )
+		{
+			indices->indices.push_back(static_cast<int>(i));
+		}
+		
+	}
+
+	// Set up the extractor
+    pcl::ExtractIndices<pcl::PointXYZ> extract;
+    extract.setInputCloud(bot_cloud);
+    extract.setIndices(indices);
+    extract.setNegative(true);    // remove, not keep
+
+    // Perform filtering in place
+    extract.filter(*bot_cloud);
 }
 
 
@@ -496,11 +751,69 @@ void RadarPCLFilter::add_right_radar_pointcloud(const sensor_msgs::msg::PointClo
 	radar_to_drone = getTransformMatrix(_t_xyz, _t_rot);
 
 
+
+	std::vector<float> velocities, snrs, noises; 
+
+	RadarPCLFilter::read_pointcloud_and_sideinfo(msg, right_cloud, velocities, snrs, noises);
+
 	// transform points in pointcloud
-
-	RadarPCLFilter::read_pointcloud(msg, right_cloud);
-
 	pcl::transformPointCloud (*right_cloud, *right_cloud, radar_to_drone);
+
+
+	RadarPCLFilter::update_drone_pose(); 
+
+	float drone_yaw_f = quatToEul(_drone_pose_yaw_only.quaternion)(2);
+
+	// find drone yaw and subtract from world yaw
+	orientation_t drone_yaw(
+		0.0, 
+		0.0,
+		-drone_yaw_f
+	); 
+
+	rotation_matrix_t yaw_rotation = quatToMat(eulToQuat(drone_yaw));
+
+	vector_t drone_velocity(
+		_x_vel,
+		_y_vel,
+		_z_vel
+	);
+
+	// get drone velocity in local drone frame (no roll and pitch)
+	vector_t drone_velocity_drone_frame = rotateVector(yaw_rotation, drone_velocity);
+
+	// check if each point's radial dopper velocity is within expected region wrt. drone velocty - else remove
+	pcl::PointIndices::Ptr indices(new pcl::PointIndices);
+	for (size_t i = 0; i < velocities.size(); i++)
+	{
+		vector_t obst_vect(
+			this->right_cloud->at(i).x, 
+			this->right_cloud->at(i).y, 
+			this->right_cloud->at(i).z
+		);
+
+		// 1) form the line‐of‐sight unit vector:
+		vector_t obst_vect_normalized = obst_vect.normalized();
+
+		// 2) signed radial velocity = dot(drone_velocity, los)
+		float ego_radial_velocity = obst_vect_normalized.dot(drone_velocity_drone_frame);
+
+		// 3) compare that signed value to your measured Doppler (also signed!)
+		if ( abs(ego_radial_velocity - velocities.at(i)) > _doppler_margin )
+		{
+			indices->indices.push_back(static_cast<int>(i));
+		}
+		
+	}
+
+	// Set up the extractor
+    pcl::ExtractIndices<pcl::PointXYZ> extract;
+    extract.setInputCloud(right_cloud);
+    extract.setIndices(indices);
+    extract.setNegative(true);    // remove, not keep
+
+    // Perform filtering in place
+    extract.filter(*right_cloud);
 }
 
 
@@ -533,11 +846,70 @@ void RadarPCLFilter::add_left_radar_pointcloud(const sensor_msgs::msg::PointClou
 	radar_to_drone = getTransformMatrix(_t_xyz, _t_rot);
 
 
+	
+	std::vector<float> velocities, snrs, noises; 
+
+	RadarPCLFilter::read_pointcloud_and_sideinfo(msg, left_cloud, velocities, snrs, noises);
+
 	// transform points in pointcloud
-
-	RadarPCLFilter::read_pointcloud(msg, left_cloud);
-
 	pcl::transformPointCloud (*left_cloud, *left_cloud, radar_to_drone);
+
+
+	RadarPCLFilter::update_drone_pose(); 
+
+	float drone_yaw_f = quatToEul(_drone_pose_yaw_only.quaternion)(2);
+
+	// find drone yaw and subtract from world yaw
+	orientation_t drone_yaw(
+		0.0, 
+		0.0,
+		-drone_yaw_f
+	); 
+
+	rotation_matrix_t yaw_rotation = quatToMat(eulToQuat(drone_yaw));
+
+	vector_t drone_velocity(
+		_x_vel,
+		_y_vel,
+		_z_vel
+	);
+
+	// get drone velocity in local drone frame (no roll and pitch)
+	vector_t drone_velocity_drone_frame = rotateVector(yaw_rotation, drone_velocity);
+
+	// check if each point's radial dopper velocity is within expected region wrt. drone velocty - else remove
+	pcl::PointIndices::Ptr indices(new pcl::PointIndices);
+	for (size_t i = 0; i < velocities.size(); i++)
+	{
+		vector_t obst_vect(
+			this->left_cloud->at(i).x, 
+			this->left_cloud->at(i).y, 
+			this->left_cloud->at(i).z
+		);
+
+		// 1) form the line‐of‐sight unit vector:
+		vector_t obst_vect_normalized = obst_vect.normalized();
+
+		// 2) signed radial velocity = dot(drone_velocity, los)
+		float ego_radial_velocity = obst_vect_normalized.dot(drone_velocity_drone_frame);
+
+		// 3) compare that signed value to your measured Doppler (also signed!)
+		if ( abs(ego_radial_velocity - velocities.at(i)) > _doppler_margin )
+		{
+			indices->indices.push_back(static_cast<int>(i));
+		}
+		
+	}
+
+	// Set up the extractor
+    pcl::ExtractIndices<pcl::PointXYZ> extract;
+    extract.setInputCloud(left_cloud);
+    extract.setIndices(indices);
+    extract.setNegative(true);    // remove, not keep
+
+    // Perform filtering in place
+    extract.filter(*left_cloud);
+	
 }
 
 
@@ -593,7 +965,7 @@ void RadarPCLFilter::create_pointcloud_msg(pcl::PointCloud<pcl::PointXYZ>::Ptr c
 	
 }
 									
-
+// read point cloud information
 void RadarPCLFilter::read_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg, 
 										pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
 
@@ -616,6 +988,91 @@ void RadarPCLFilter::read_pointcloud(const sensor_msgs::msg::PointCloud2::Shared
 	}
 }   
 
+// read point cloud information, including radial doppler velocity and SNR information
+void RadarPCLFilter::read_pointcloud_and_sideinfo(
+    const sensor_msgs::msg::PointCloud2::SharedPtr msg,
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
+    std::vector<float> &velocities,
+    std::vector<float> &snrs,
+    std::vector<float> &noises)
+{
+    // 1) Discover field offsets
+    int off_x     = -1, off_y     = -1, off_z     = -1;
+    int off_vel   = -1, off_snr   = -1, off_noise = -1;
+    for (const auto &f : msg->fields) {
+        if      (f.name == "x")     off_x     = f.offset;
+        else if (f.name == "y")     off_y     = f.offset;
+        else if (f.name == "z")     off_z     = f.offset;
+        else if (f.name == "vel")   off_vel   = f.offset;
+        else if (f.name == "snr")   off_snr   = f.offset;
+        else if (f.name == "noise") off_noise = f.offset;
+    }
+
+    // 2) Prepare containers
+    size_t count = msg->width * msg->height;
+    cloud->clear();
+    cloud->reserve(count);
+
+    velocities.clear();  if (off_vel   >= 0) velocities.reserve(count);
+    snrs.clear();        if (off_snr   >= 0) snrs.reserve(count);
+    noises.clear();      if (off_noise >= 0) noises.reserve(count);
+
+    const uint8_t *ptr     = msg->data.data();
+    uint32_t      step     = msg->point_step;
+
+    // 3) Iterate points
+    for (size_t i = 0; i < count; ++i, ptr += step) {
+        // XYZ
+        float x = *reinterpret_cast<const float*>(ptr + off_x);
+        float y = *reinterpret_cast<const float*>(ptr + off_y);
+        float z = *reinterpret_cast<const float*>(ptr + off_z);
+        cloud->push_back({x,y,z});
+
+        // Optional extras
+        if (off_vel >= 0) {
+            float v = *reinterpret_cast<const float*>(ptr + off_vel);
+            velocities.push_back(v);
+        }
+        if (off_snr >= 0) {
+            float s = *reinterpret_cast<const float*>(ptr + off_snr);
+            snrs.push_back(s);
+        }
+        if (off_noise >= 0) {
+            float n = *reinterpret_cast<const float*>(ptr + off_noise);
+            noises.push_back(n);
+        }
+    }
+}
+
+
+void RadarPCLFilter::update_drone_pose() {
+
+	geometry_msgs::msg::TransformStamped t;
+
+	try {
+		if (tf_buffer_->canTransform("world", "drone_yaw_only", tf2::TimePointZero))	{
+			t = tf_buffer_->lookupTransform("world","drone_yaw_only",tf2::TimePointZero);
+		}
+		else {
+			RCLCPP_INFO(this->get_logger(), "Can not transform");
+			return;
+		}
+	} catch (const tf2::TransformException & ex) {
+		RCLCPP_INFO(this->get_logger(), "Could not transform: %s", ex.what());
+		return;
+	}
+
+
+	_drone_pose_yaw_only.position(0) = t.transform.translation.x;
+	_drone_pose_yaw_only.position(1) = t.transform.translation.y;
+	_drone_pose_yaw_only.position(2) = t.transform.translation.z;
+	
+	_drone_pose_yaw_only.quaternion(0) = t.transform.rotation.x;
+	_drone_pose_yaw_only.quaternion(1) = t.transform.rotation.y;
+	_drone_pose_yaw_only.quaternion(2) = t.transform.rotation.z;
+	_drone_pose_yaw_only.quaternion(3) = t.transform.rotation.w;
+
+}
 
 	
 			

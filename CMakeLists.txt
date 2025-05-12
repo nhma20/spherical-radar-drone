@@ -39,7 +39,7 @@ find_package(visualization_msgs REQUIRED)
 
 find_package(ament_index_cpp REQUIRED)
 
-find_package(PCL 1.2 REQUIRED COMPONENTS common)
+find_package(PCL 1.2 REQUIRED COMPONENTS common filters)
 
 
 include_directories(${PCL_INCLUDE_DIRS})

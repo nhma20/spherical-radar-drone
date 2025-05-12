@@ -81,7 +81,7 @@ def generate_launch_description():
             {'frame_id': 'front_frame'},
             {'radar_azimuth_fov': 140},
             {'radar_elevation_fov': 60},
-            {'minimum_range': 0.2},
+            {'minimum_range': 0.3},
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
         output='screen',
@@ -102,7 +102,7 @@ def generate_launch_description():
             {'frame_id': 'rear_frame'},
             {'radar_azimuth_fov': 140},
             {'radar_elevation_fov': 140},
-            {'minimum_range': 0.2}
+            {'minimum_range': 0.3}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
         output='screen',
@@ -123,7 +123,7 @@ def generate_launch_description():
             {'frame_id': 'top_frame'},
             {'radar_azimuth_fov': 140},
             {'radar_elevation_fov': 140},
-            {'minimum_range': 0.2}
+            {'minimum_range': 0.3}
             
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
@@ -145,7 +145,7 @@ def generate_launch_description():
             {'frame_id': 'bot_frame'},
             {'radar_azimuth_fov': 140},
             {'radar_elevation_fov': 140},
-            {'minimum_range': 0.2}
+            {'minimum_range': 0.3}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
         output='screen',
@@ -166,7 +166,7 @@ def generate_launch_description():
             {'frame_id': 'right_frame'},
             {'radar_azimuth_fov': 140},
             {'radar_elevation_fov': 140},
-            {'minimum_range': 0.2}
+            {'minimum_range': 0.3}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
         output='screen',
@@ -187,7 +187,7 @@ def generate_launch_description():
             {'frame_id': 'left_frame'},
             {'radar_azimuth_fov': 140},
             {'radar_elevation_fov': 140},
-            {'minimum_range': 0.2}
+            {'minimum_range': 0.3}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
         output='screen',
