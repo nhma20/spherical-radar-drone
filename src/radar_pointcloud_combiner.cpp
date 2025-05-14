@@ -151,6 +151,31 @@ class RadarPCLFilter : public rclcpp::Node
 
 			pcl::PointCloud<pcl::PointXYZ>::Ptr tmp7_cloud (new pcl::PointCloud<pcl::PointXYZ>);
 			this->combined_cloud = tmp7_cloud;
+
+
+			_combined_pcl_msg = sensor_msgs::msg::PointCloud2();
+			_combined_pcl_msg.header = std_msgs::msg::Header();
+			const std::string frame_id = "drone_yaw_only";
+			_combined_pcl_msg.header.frame_id = frame_id;
+			_combined_pcl_msg.fields.resize(3);
+			_combined_pcl_msg.fields[0].name = 'x';
+			_combined_pcl_msg.fields[0].offset = 0;
+			_combined_pcl_msg.fields[0].datatype = sensor_msgs::msg::PointField::FLOAT32;
+			_combined_pcl_msg.fields[0].count = 1;
+			_combined_pcl_msg.fields[1].name = 'y';
+			_combined_pcl_msg.fields[1].offset = 4;
+			_combined_pcl_msg.fields[1].datatype = sensor_msgs::msg::PointField::FLOAT32;
+			_combined_pcl_msg.fields[1].count = 1;
+			_combined_pcl_msg.fields[2].name = 'z';
+			_combined_pcl_msg.fields[2].offset = 8;
+			_combined_pcl_msg.fields[2].datatype = sensor_msgs::msg::PointField::FLOAT32;
+			_combined_pcl_msg.fields[2].count = 1;
+			const uint32_t POINT_STEP = 12;
+			_combined_pcl_msg.point_step = POINT_STEP; // size (bytes) of 1 point (float32 * dimensions (3 when xyz))
+			_combined_pcl_msg.height = 1;  // because unordered cloud
+			_combined_pcl_msg.is_dense = false; // there may be invalid points
+
+
 		}
 
 		~RadarPCLFilter() {
@@ -188,9 +213,10 @@ class RadarPCLFilter : public rclcpp::Node
 		void add_left_radar_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 		void check_pointclouds();
 		void update_drone_pose();
+		homog_transform_t get_radar_to_drone_tf(geometry_msgs::msg::TransformStamped tf);
 		void publish_combined_pointcloud();
 
-		void create_pointcloud_msg(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, sensor_msgs::msg::PointCloud2 * pcl_msg, std::string frame_id);
+		void create_pointcloud_msg(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, sensor_msgs::msg::PointCloud2 * pcl_msg);
 
 		void read_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg, 
 										pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
@@ -236,6 +262,8 @@ class RadarPCLFilter : public rclcpp::Node
 		float _x_vel = 0.0; // NWU
 		float _y_vel = 0.0; // NWU
 		float _z_vel = 0.0; // NWU
+
+		sensor_msgs::msg::PointCloud2 _combined_pcl_msg; 
 
 		pose_t _drone_pose_yaw_only; // in world coordinates North-West-Up
 };
@@ -313,37 +341,20 @@ void RadarPCLFilter::publish_combined_pointcloud() {
 	// RCLCPP_INFO(this->get_logger(), "Size %d", left_cloud->size());
 
 
-	homog_transform_t radar_to_drone;
-
 	drone_to_drone_yaw_tf = tf_buffer_->lookupTransform("drone_yaw_only", "drone", tf2::TimePointZero);
 
-	vector_t _t_xyz;
-	quat_t _t_rot;
-
-	// make transform front->drone
-	_t_xyz(0) = this->drone_to_drone_yaw_tf.transform.translation.x;
-	_t_xyz(1) = this->drone_to_drone_yaw_tf.transform.translation.y;
-	_t_xyz(2) = this->drone_to_drone_yaw_tf.transform.translation.z;
-
-	_t_rot(0) = this->drone_to_drone_yaw_tf.transform.rotation.x;
-	_t_rot(1) = this->drone_to_drone_yaw_tf.transform.rotation.y;
-	_t_rot(2) = this->drone_to_drone_yaw_tf.transform.rotation.z;
-	_t_rot(3) = this->drone_to_drone_yaw_tf.transform.rotation.w;
-
-	radar_to_drone = getTransformMatrix(_t_xyz, _t_rot);
+	homog_transform_t radar_to_drone = RadarPCLFilter::get_radar_to_drone_tf(drone_to_drone_yaw_tf);
 
 	pcl::transformPointCloud (*combined_cloud, *combined_cloud, radar_to_drone);
 
-	auto pcl_msg = sensor_msgs::msg::PointCloud2();
-	std::string frame_id = "drone_yaw_only";
-	RadarPCLFilter::create_pointcloud_msg(combined_cloud, &pcl_msg, frame_id);
+	RadarPCLFilter::create_pointcloud_msg(combined_cloud, &_combined_pcl_msg);
 
-	if (pcl_msg.width < 1)
+	if (_combined_pcl_msg.width < 1)
 	{
 		return;
 	}
 		
-	combined_pointcloud_pub->publish(pcl_msg); 
+	combined_pointcloud_pub->publish(_combined_pcl_msg); 
 }
 
 
@@ -359,27 +370,12 @@ void RadarPCLFilter::add_front_radar_pointcloud(const sensor_msgs::msg::PointClo
 		return;
 	}
 
-	homog_transform_t radar_to_drone;
-
-	vector_t _t_xyz;
-	quat_t _t_rot;
-
-	// make transform front->drone
-	_t_xyz(0) = this->front_to_drone_tf.transform.translation.x;
-	_t_xyz(1) = this->front_to_drone_tf.transform.translation.y;
-	_t_xyz(2) = this->front_to_drone_tf.transform.translation.z;
-
-	_t_rot(0) = this->front_to_drone_tf.transform.rotation.x;
-	_t_rot(1) = this->front_to_drone_tf.transform.rotation.y;
-	_t_rot(2) = this->front_to_drone_tf.transform.rotation.z;
-	_t_rot(3) = this->front_to_drone_tf.transform.rotation.w;
-
-	radar_to_drone = getTransformMatrix(_t_xyz, _t_rot);
-
-
-	std::vector<float> velocities, snrs, noises; 
+	static std::vector<float> velocities, snrs, noises; 
 
 	RadarPCLFilter::read_pointcloud_and_sideinfo(msg, front_cloud, velocities, snrs, noises);
+
+	// make transform front->drone
+	static const homog_transform_t radar_to_drone = RadarPCLFilter::get_radar_to_drone_tf(this->front_to_drone_tf);
 
 	// transform points in pointcloud
 	pcl::transformPointCloud (*front_cloud, *front_cloud, radar_to_drone);
@@ -399,27 +395,12 @@ void RadarPCLFilter::add_rear_radar_pointcloud(const sensor_msgs::msg::PointClou
 		return;
 	}
 
-	homog_transform_t radar_to_drone;
-
-	vector_t _t_xyz;
-	quat_t _t_rot;
-
-	// make transform front->drone
-	_t_xyz(0) = this->rear_to_drone_tf.transform.translation.x;
-	_t_xyz(1) = this->rear_to_drone_tf.transform.translation.y;
-	_t_xyz(2) = this->rear_to_drone_tf.transform.translation.z;
-
-	_t_rot(0) = this->rear_to_drone_tf.transform.rotation.x;
-	_t_rot(1) = this->rear_to_drone_tf.transform.rotation.y;
-	_t_rot(2) = this->rear_to_drone_tf.transform.rotation.z;
-	_t_rot(3) = this->rear_to_drone_tf.transform.rotation.w;
-
-	radar_to_drone = getTransformMatrix(_t_xyz, _t_rot);
-
-
-	std::vector<float> velocities, snrs, noises; 
+	static std::vector<float> velocities, snrs, noises; 
 
 	RadarPCLFilter::read_pointcloud_and_sideinfo(msg, rear_cloud, velocities, snrs, noises);
+
+	// make transform front->drone
+	static const homog_transform_t radar_to_drone = RadarPCLFilter::get_radar_to_drone_tf(this->rear_to_drone_tf);
 
 	// transform points in pointcloud
 	pcl::transformPointCloud (*rear_cloud, *rear_cloud, radar_to_drone);
@@ -439,27 +420,12 @@ void RadarPCLFilter::add_top_radar_pointcloud(const sensor_msgs::msg::PointCloud
 		return;
 	}
 
-	homog_transform_t radar_to_drone;
-
-	vector_t _t_xyz;
-	quat_t _t_rot;
-
-	// make transform front->drone
-	_t_xyz(0) = this->top_to_drone_tf.transform.translation.x;
-	_t_xyz(1) = this->top_to_drone_tf.transform.translation.y;
-	_t_xyz(2) = this->top_to_drone_tf.transform.translation.z;
-
-	_t_rot(0) = this->top_to_drone_tf.transform.rotation.x;
-	_t_rot(1) = this->top_to_drone_tf.transform.rotation.y;
-	_t_rot(2) = this->top_to_drone_tf.transform.rotation.z;
-	_t_rot(3) = this->top_to_drone_tf.transform.rotation.w;
-
-	radar_to_drone = getTransformMatrix(_t_xyz, _t_rot);
-
-
-	std::vector<float> velocities, snrs, noises; 
+	static std::vector<float> velocities, snrs, noises; 
 
 	RadarPCLFilter::read_pointcloud_and_sideinfo(msg, top_cloud, velocities, snrs, noises);
+
+	// make transform front->drone
+	static const homog_transform_t radar_to_drone = RadarPCLFilter::get_radar_to_drone_tf(this->top_to_drone_tf);
 
 	// transform points in pointcloud
 	pcl::transformPointCloud (*top_cloud, *top_cloud, radar_to_drone);
@@ -479,27 +445,12 @@ void RadarPCLFilter::add_bot_radar_pointcloud(const sensor_msgs::msg::PointCloud
 		return;
 	}
 
-	homog_transform_t radar_to_drone;
-
-	vector_t _t_xyz;
-	quat_t _t_rot;
-
-	// make transform front->drone
-	_t_xyz(0) = this->bot_to_drone_tf.transform.translation.x;
-	_t_xyz(1) = this->bot_to_drone_tf.transform.translation.y;
-	_t_xyz(2) = this->bot_to_drone_tf.transform.translation.z;
-
-	_t_rot(0) = this->bot_to_drone_tf.transform.rotation.x;
-	_t_rot(1) = this->bot_to_drone_tf.transform.rotation.y;
-	_t_rot(2) = this->bot_to_drone_tf.transform.rotation.z;
-	_t_rot(3) = this->bot_to_drone_tf.transform.rotation.w;
-
-	radar_to_drone = getTransformMatrix(_t_xyz, _t_rot);
-
-
-	std::vector<float> velocities, snrs, noises; 
+	static std::vector<float> velocities, snrs, noises; 
 
 	RadarPCLFilter::read_pointcloud_and_sideinfo(msg, bot_cloud, velocities, snrs, noises);
+
+	// make transform front->drone
+	static const homog_transform_t radar_to_drone = RadarPCLFilter::get_radar_to_drone_tf(this->bot_to_drone_tf);
 
 	// transform points in pointcloud
 	pcl::transformPointCloud (*bot_cloud, *bot_cloud, radar_to_drone);
@@ -519,27 +470,12 @@ void RadarPCLFilter::add_right_radar_pointcloud(const sensor_msgs::msg::PointClo
 		return;
 	}
 
-	homog_transform_t radar_to_drone;
-
-	vector_t _t_xyz;
-	quat_t _t_rot;
-
-	// make transform front->drone
-	_t_xyz(0) = this->right_to_drone_tf.transform.translation.x;
-	_t_xyz(1) = this->right_to_drone_tf.transform.translation.y;
-	_t_xyz(2) = this->right_to_drone_tf.transform.translation.z;
-
-	_t_rot(0) = this->right_to_drone_tf.transform.rotation.x;
-	_t_rot(1) = this->right_to_drone_tf.transform.rotation.y;
-	_t_rot(2) = this->right_to_drone_tf.transform.rotation.z;
-	_t_rot(3) = this->right_to_drone_tf.transform.rotation.w;
-
-	radar_to_drone = getTransformMatrix(_t_xyz, _t_rot);
-
-
-	std::vector<float> velocities, snrs, noises; 
+	static std::vector<float> velocities, snrs, noises; 
 
 	RadarPCLFilter::read_pointcloud_and_sideinfo(msg, right_cloud, velocities, snrs, noises);
+
+	// make transform front->drone
+	static const homog_transform_t radar_to_drone = RadarPCLFilter::get_radar_to_drone_tf(this->right_to_drone_tf);
 
 	// transform points in pointcloud
 	pcl::transformPointCloud (*right_cloud, *right_cloud, radar_to_drone);
@@ -559,28 +495,12 @@ void RadarPCLFilter::add_left_radar_pointcloud(const sensor_msgs::msg::PointClou
 		return;
 	}
 
-	homog_transform_t radar_to_drone;
-
-	vector_t _t_xyz;
-	quat_t _t_rot;
-
-	// make transform front->drone
-	_t_xyz(0) = this->left_to_drone_tf.transform.translation.x;
-	_t_xyz(1) = this->left_to_drone_tf.transform.translation.y;
-	_t_xyz(2) = this->left_to_drone_tf.transform.translation.z;
-
-	_t_rot(0) = this->left_to_drone_tf.transform.rotation.x;
-	_t_rot(1) = this->left_to_drone_tf.transform.rotation.y;
-	_t_rot(2) = this->left_to_drone_tf.transform.rotation.z;
-	_t_rot(3) = this->left_to_drone_tf.transform.rotation.w;
-
-	radar_to_drone = getTransformMatrix(_t_xyz, _t_rot);
-
-
-	
-	std::vector<float> velocities, snrs, noises; 
+	static std::vector<float> velocities, snrs, noises; 
 
 	RadarPCLFilter::read_pointcloud_and_sideinfo(msg, left_cloud, velocities, snrs, noises);
+
+	// make transform front->drone
+	static const homog_transform_t radar_to_drone = RadarPCLFilter::get_radar_to_drone_tf(this->left_to_drone_tf);
 
 	// transform points in pointcloud
 	pcl::transformPointCloud (*left_cloud, *left_cloud, radar_to_drone);
@@ -589,40 +509,73 @@ void RadarPCLFilter::add_left_radar_pointcloud(const sensor_msgs::msg::PointClou
 	
 }
 
+
+homog_transform_t RadarPCLFilter::get_radar_to_drone_tf(geometry_msgs::msg::TransformStamped tf) {
+
+		// make transform radar->drone
+		vector_t _t_xyz(
+			tf.transform.translation.x,
+			tf.transform.translation.y,
+			tf.transform.translation.z
+		);
+	
+		quat_t _t_rot(
+			tf.transform.rotation.x,
+			tf.transform.rotation.y,
+			tf.transform.rotation.z,
+			tf.transform.rotation.w
+		);
+
+		homog_transform_t radar_to_drone = getTransformMatrix(_t_xyz, _t_rot);
+
+		return radar_to_drone;
+
+}
+
+
 // Remove points if their radial doppler velocity cannot be explained by ego velocity
 void RadarPCLFilter::doppler_filter_points(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
 											std::vector<float> &velocities) {
 
 	RadarPCLFilter::update_drone_pose(); 
 
-	float drone_yaw_f = quatToEul(_drone_pose_yaw_only.quaternion)(2);
+	float yaw = quatToEul(_drone_pose_yaw_only.quaternion)(2);
 
-	// find drone yaw and subtract from world yaw
-	orientation_t drone_yaw(
-		0.0, 
-		0.0,
-		-drone_yaw_f
-	); 
+	// rotation about Z
+    float c = std::cos(-yaw), s = std::sin(-yaw);
+	
+	vector_t drone_velocity_drone_frame{
+        _x_vel * c - _y_vel * s,
+        _x_vel * s + _y_vel * c,
+        _z_vel
+    };
 
-	rotation_matrix_t yaw_rotation = quatToMat(eulToQuat(drone_yaw));
+	// // find drone yaw and subtract from world yaw
+	// orientation_t drone_yaw(
+	// 	0.0, 
+	// 	0.0,
+	// 	-drone_yaw_f
+	// ); 
 
-	vector_t drone_velocity(
-		_x_vel,
-		_y_vel,
-		_z_vel
-	);
+	// rotation_matrix_t yaw_rotation = quatToMat(eulToQuat(drone_yaw));
 
-	// get drone velocity in local drone frame (no roll and pitch)
-	vector_t drone_velocity_drone_frame = rotateVector(yaw_rotation, drone_velocity);
+	// vector_t drone_velocity(
+	// 	_x_vel,
+	// 	_y_vel,
+	// 	_z_vel
+	// );
+
+	// // get drone velocity in local drone frame (no roll and pitch)
+	// vector_t drone_velocity_drone_frame = rotateVector(yaw_rotation, drone_velocity);
 
 	// check if each point's radial dopper velocity is within expected region wrt. drone velocty - else remove
 	pcl::PointIndices::Ptr indices(new pcl::PointIndices);
 	for (size_t i = 0; i < velocities.size(); i++)
 	{
 		vector_t obst_vect(
-			cloud->at(i).x, 
-			cloud->at(i).y, 
-			cloud->at(i).z
+			cloud->points[i].x, 
+			cloud->points[i].y, 
+			cloud->points[i].z
 		);
 
 		// 1) form the line‐of‐sight unit vector:
@@ -651,30 +604,14 @@ void RadarPCLFilter::doppler_filter_points(pcl::PointCloud<pcl::PointXYZ>::Ptr c
 }
 
 
-void RadarPCLFilter::create_pointcloud_msg(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, sensor_msgs::msg::PointCloud2 * pcl_msg, std::string frame_id) {
+void RadarPCLFilter::create_pointcloud_msg(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, sensor_msgs::msg::PointCloud2 * pcl_msg) {
 
   // create PointCloud2 msg
 	//https://github.com/ros-drivers/velodyne/blob/master/velodyne_laserscan/tests/system.cpp
 	int pcl_size = cloud->size();
-	auto pcl2_msg = sensor_msgs::msg::PointCloud2();
 	const uint32_t POINT_STEP = 12;
 
-	pcl_msg->header = std_msgs::msg::Header();
 	pcl_msg->header.stamp = this->now();
-	pcl_msg->header.frame_id = frame_id;
-	pcl_msg->fields.resize(3);
-	pcl_msg->fields[0].name = 'x';
-	pcl_msg->fields[0].offset = 0;
-	pcl_msg->fields[0].datatype = sensor_msgs::msg::PointField::FLOAT32;
-	pcl_msg->fields[0].count = 1;
-	pcl_msg->fields[1].name = 'y';
-	pcl_msg->fields[1].offset = 4;
-	pcl_msg->fields[1].datatype = sensor_msgs::msg::PointField::FLOAT32;
-	pcl_msg->fields[1].count = 1;
-	pcl_msg->fields[2].name = 'z';
-	pcl_msg->fields[2].offset = 8;
-	pcl_msg->fields[2].datatype = sensor_msgs::msg::PointField::FLOAT32;
-	pcl_msg->fields[2].count = 1;
 
 	if(pcl_size > 0){
 		pcl_msg->data.resize(std::max((size_t)1, (size_t)pcl_size) * POINT_STEP, 0x00);
@@ -682,11 +619,8 @@ void RadarPCLFilter::create_pointcloud_msg(pcl::PointCloud<pcl::PointXYZ>::Ptr c
         return;
     }
 
-	pcl_msg->point_step = POINT_STEP; // size (bytes) of 1 point (float32 * dimensions (3 when xyz))
 	pcl_msg->row_step = pcl_msg->data.size();//pcl_msg->point_step * pcl_msg->width; // only 1 row because unordered
-	pcl_msg->height = 1;  // because unordered cloud
 	pcl_msg->width = pcl_msg->row_step / POINT_STEP; // number of points in cloud
-	pcl_msg->is_dense = false; // there may be invalid points
 
 	// fill PointCloud2 msg data
 	uint8_t *ptr = pcl_msg->data.data();
@@ -800,15 +734,7 @@ void RadarPCLFilter::update_drone_pose() {
 		return;
 	}
 
-
-	_drone_pose_yaw_only.position(0) = t.transform.translation.x;
-	_drone_pose_yaw_only.position(1) = t.transform.translation.y;
-	_drone_pose_yaw_only.position(2) = t.transform.translation.z;
-	
-	_drone_pose_yaw_only.quaternion(0) = t.transform.rotation.x;
-	_drone_pose_yaw_only.quaternion(1) = t.transform.rotation.y;
-	_drone_pose_yaw_only.quaternion(2) = t.transform.rotation.z;
-	_drone_pose_yaw_only.quaternion(3) = t.transform.rotation.w;
+	_drone_pose_yaw_only.quaternion(2) = t.transform.rotation.z; // only need this value for calculations
 
 }
 
