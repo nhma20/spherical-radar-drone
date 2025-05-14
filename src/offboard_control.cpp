@@ -260,6 +260,179 @@ public:
 			}
 
 		}
+
+
+
+
+		//////////////////////// INIT MARKERS //////////////////////////
+		// input velocity arrow
+		_input_velocity_marker.header = std_msgs::msg::Header();
+		_input_velocity_marker.header.frame_id = "drone_yaw_only";
+
+		_input_velocity_marker.ns = "input_velocity_arrow";
+		_input_velocity_marker.id = 1;
+
+		_input_velocity_marker.type = visualization_msgs::msg::Marker::ARROW;
+
+		_input_velocity_marker.action = visualization_msgs::msg::Marker::ADD;
+
+		_input_velocity_marker.pose.position.x = 0.0; //_drone_pose.position(0);
+		_input_velocity_marker.pose.position.y = 0.0; //_drone_pose.position(1);
+		_input_velocity_marker.pose.position.z = 0.0; //_drone_pose.position(2); 
+
+		// Set the color -- be sure to set alpha to something non-zero!
+		_input_velocity_marker.color.r = 0.0f;
+		_input_velocity_marker.color.g = 1.0f;
+		_input_velocity_marker.color.b = 0.0f;
+		_input_velocity_marker.color.a = 0.25;
+
+		_input_velocity_marker.lifetime = rclcpp::Duration::from_seconds(0);
+
+
+
+		///////////////////////////////////////////////////////////
+		// drone velocity arrow
+		_drone_velocity_marker.header = std_msgs::msg::Header();
+		_drone_velocity_marker.header.frame_id = "world";
+
+		_drone_velocity_marker.ns = "velocity_arrow";
+		_drone_velocity_marker.id = 0;
+
+		_drone_velocity_marker.type = visualization_msgs::msg::Marker::ARROW;
+
+		_drone_velocity_marker.action = visualization_msgs::msg::Marker::ADD;
+
+		// Set the color -- be sure to set alpha to something non-zero!
+		_drone_velocity_marker.color.r = 1.0f;
+		_drone_velocity_marker.color.g = 0.0f;
+		_drone_velocity_marker.color.b = 0.0f;
+		_drone_velocity_marker.color.a = 0.4;
+
+		_drone_velocity_marker.lifetime = rclcpp::Duration::from_seconds(0);
+
+
+		
+		///////////////////////////////////////////////////////////
+		// output velocity arrow
+		_out_velocity_marker.header = std_msgs::msg::Header();
+		_out_velocity_marker.header.frame_id = "drone_yaw_only";
+
+		_out_velocity_marker.ns = "out_vel_arrow";
+		_out_velocity_marker.id = 40;
+
+		_out_velocity_marker.type = visualization_msgs::msg::Marker::ARROW;
+
+		_out_velocity_marker.action = visualization_msgs::msg::Marker::ADD;
+
+		_out_velocity_marker.pose.position.x = 0.0; //0; 
+		_out_velocity_marker.pose.position.y = 0.0; //0;
+		_out_velocity_marker.pose.position.z = 0.0; //0; 
+
+		// Set the color -- be sure to set alpha to something non-zero!
+		_out_velocity_marker.color.r = 1.0f;
+		_out_velocity_marker.color.g = 1.0f;
+		_out_velocity_marker.color.b = 0.0f;
+		_out_velocity_marker.color.a = 0.4;
+
+		_out_velocity_marker.lifetime = rclcpp::Duration::from_seconds(0);
+
+
+
+		///////////////////////////////////////////////////////////
+		// obstacle tangent arrow
+		_obst_tangent_marker.header = std_msgs::msg::Header();
+		_obst_tangent_marker.header.frame_id = "drone_yaw_only";
+		_obst_tangent_marker.ns = "obst_tangent_arrow";
+		_obst_tangent_marker.id = 45;
+		_obst_tangent_marker.type = visualization_msgs::msg::Marker::ARROW;
+		_obst_tangent_marker.action = visualization_msgs::msg::Marker::ADD;
+
+		_obst_tangent_marker.pose.position.x = 0.0; //_drone_pose.position(0);
+		_obst_tangent_marker.pose.position.y = 0.0; //_drone_pose.position(1);
+		_obst_tangent_marker.pose.position.z = 0.0; //_drone_pose.position(2); 
+
+		// Set the color -- be sure to set alpha to something non-zero!
+		_obst_tangent_marker.color.r = 1.0f;
+		_obst_tangent_marker.color.g = 0.0f;
+		_obst_tangent_marker.color.b = 1.0f;
+		_obst_tangent_marker.color.a = 0.4;
+
+		_obst_tangent_marker.lifetime = rclcpp::Duration::from_seconds(0);
+
+
+
+		///////////////////////////////////////////////////////////
+		// safety bubble sphere
+		_safety_bubble_marker.header = std_msgs::msg::Header();
+		_safety_bubble_marker.header.frame_id = "world";
+		_safety_bubble_marker.ns = "safety_bubble";
+		_safety_bubble_marker.id = 2;
+		_safety_bubble_marker.type = visualization_msgs::msg::Marker::SPHERE;
+		_safety_bubble_marker.action = visualization_msgs::msg::Marker::ADD;
+
+		// Set the scale of the marker -- 1x1x1 here means 1m on a side
+		_safety_bubble_marker.scale.x = _safety_sphere_radius * 2; /// make parameter
+		_safety_bubble_marker.scale.y = _safety_bubble_marker.scale.x;
+		_safety_bubble_marker.scale.z = _safety_bubble_marker.scale.x;
+		// Set the color -- be sure to set alpha to something non-zero!
+		_safety_bubble_marker.color.r = 1.0f;
+		_safety_bubble_marker.color.g = 0.0f;
+		_safety_bubble_marker.color.b = 0.0f;
+		_safety_bubble_marker.color.a = 0.25;
+
+		_safety_bubble_marker.lifetime = rclcpp::Duration::from_seconds(0);
+
+
+
+		///////////////////////////////////////////////////////////
+		// caution bubble sphere
+		_caution_sphere_marker.header = std_msgs::msg::Header();
+		_caution_sphere_marker.header.frame_id = "world";
+		_caution_sphere_marker.ns = "caution_sphere";
+		_caution_sphere_marker.id = 2;
+		_caution_sphere_marker.type = visualization_msgs::msg::Marker::SPHERE;
+		_caution_sphere_marker.action = visualization_msgs::msg::Marker::ADD;
+
+		// Set the scale of the marker -- 1x1x1 here means 1m on a side
+		_caution_sphere_marker.scale.x = _caution_sphere_radius * 2; /// make parameter
+		_caution_sphere_marker.scale.y = _caution_sphere_marker.scale.x;
+		_caution_sphere_marker.scale.z = _caution_sphere_marker.scale.x;
+		// Set the color -- be sure to set alpha to something non-zero!
+		_caution_sphere_marker.color.b = 0.0f;
+		_caution_sphere_marker.color.a = 0.15;
+
+		_caution_sphere_marker.lifetime = rclcpp::Duration::from_seconds(0);
+
+
+
+		///////////////////////////////////////////////////////////
+		// look-ahead volume
+		_look_ahead_marker.header = std_msgs::msg::Header();
+		_look_ahead_marker.header.frame_id = "world";
+		_look_ahead_marker.ns = "look_ahead";
+		_look_ahead_marker.id = 20;
+		_look_ahead_marker.type = visualization_msgs::msg::Marker::MESH_RESOURCE;
+		std::string home_dir = std::getenv("HOME");
+		std::string mesh_path = std::string("file://") + home_dir + std::string("/look_ahead_cone.stl");
+		_look_ahead_marker.mesh_resource = mesh_path;
+		_look_ahead_marker.action = visualization_msgs::msg::Marker::ADD;
+
+		// Set the color -- be sure to set alpha to something non-zero!
+		_look_ahead_marker.color.r = 0.9f;
+		_look_ahead_marker.color.g = 0.9f;
+		_look_ahead_marker.color.b = 0.9f;
+		_look_ahead_marker.color.a = 0.75f;
+
+		_look_ahead_marker.lifetime = rclcpp::Duration::from_seconds(0);
+		/////////////////////// INIT MARKERS END /////////////////////////
+
+
+		// PATH INIT
+		_manual_path_msg.header.frame_id = "world";
+		_offboard_path_msg.header.frame_id = "world";
+		_pose_msg.header.frame_id = "world";
+
+
 		
 	}
 
@@ -363,12 +536,44 @@ private:
 
 	float _hover_height = 2;
 
+
+
+	//////////////////////// MARKERS //////////////////////////
+	// input velocity arrow
+	visualization_msgs::msg::Marker _input_velocity_marker;
+
+	// drone velocity arrow
+	visualization_msgs::msg::Marker _drone_velocity_marker;
+
+	// output velocity arrow
+	visualization_msgs::msg::Marker _out_velocity_marker;
+
+	// obstacle tangent arrow
+	visualization_msgs::msg::Marker _obst_tangent_marker;
+
+	// safety bubble sphere
+	visualization_msgs::msg::Marker _safety_bubble_marker;
+
+	// caution bubble sphere
+	visualization_msgs::msg::Marker _caution_sphere_marker;
+
+	// look-ahead volume
+	visualization_msgs::msg::Marker _look_ahead_marker;
+	///////////////////////////////////////////////////////////
+
+	// PATH
+	nav_msgs::msg::Path _manual_path_msg;
+	nav_msgs::msg::Path  _offboard_path_msg;
+	geometry_msgs::msg::PoseStamped _pose_msg;
+
+
+
+
 	void publish_path();
 	void flight_state_machine();
 	void update_drone_pose();
 	void publish_offboard_control_mode() const;
 	void publish_takeoff_setpoint();
-	void publish_tracking_setpoint();
 	void publish_hold_setpoint() const;
 	void publish_setpoint(px4_msgs::msg::TrajectorySetpoint msg) const;
 	void publish_vehicle_command(uint16_t command, float param1 = 0.0,
@@ -428,7 +633,9 @@ void OffboardControl::collision_checker(std::vector<size_t> * combined_points_id
 
 	for (size_t i = 0; i < (size_t)_combined_points->size(); i++)
 	{
-		point_dist = sqrt( pow(_combined_points->at(i).x, 2) + pow(_combined_points->at(i).y, 2) + pow(_combined_points->at(i).z, 2) );
+		const auto& pt = _combined_points->points[i];
+		point_dist = std::hypot(std::hypot(pt.x, pt.y), pt.z);
+		// point_dist = sqrt( pow(_combined_points->at(i).x, 2) + pow(_combined_points->at(i).y, 2) + pow(_combined_points->at(i).z, 2) );
 
 		if (point_dist < _caution_sphere_radius)
 		{
@@ -504,7 +711,9 @@ vector_t OffboardControl::speed_limiter() {
 	rotation_matrix_t yaw_rotation = quatToMat(eulToQuat(drone_yaw));
 
 	// get drone velocity in local drone frame (no roll and pitch)
-	vector_t drone_velocity_drone_frame = rotateVector(yaw_rotation, drone_velocity);
+	const vector_t drone_velocity_drone_frame = rotateVector(yaw_rotation, drone_velocity);
+	const vector_t normalized_drone_velocity_drone_frame = drone_velocity_drone_frame.normalized();
+	const float drone_vel_magnitude = drone_velocity_drone_frame.stableNorm();
 
 
 
@@ -528,9 +737,9 @@ vector_t OffboardControl::speed_limiter() {
 	for (size_t i = 0; i < points_idx_in_caution_sphere.size(); i++)
 	{
 		vector_t obst_vect(
-			_combined_points->at(points_idx_in_caution_sphere.at(i)).x, 
-			_combined_points->at(points_idx_in_caution_sphere.at(i)).y,
-			_combined_points->at(points_idx_in_caution_sphere.at(i)).z
+			_combined_points->points[points_idx_in_caution_sphere.at(i)].x, 
+			_combined_points->points[points_idx_in_caution_sphere.at(i)].y,
+			_combined_points->points[points_idx_in_caution_sphere.at(i)].z
 		);
 
 		vector_t alt_input_velocity_vector(
@@ -588,12 +797,12 @@ vector_t OffboardControl::speed_limiter() {
 	for (size_t i = 0; i < points_idx_in_safety_sphere.size(); i++)
 	{
 		vector_t obst_vect(
-			_combined_points->at(points_idx_in_safety_sphere.at(i)).x, 
-			_combined_points->at(points_idx_in_safety_sphere.at(i)).y,
-			-_combined_points->at(points_idx_in_safety_sphere.at(i)).z
+			_combined_points->points[points_idx_in_safety_sphere.at(i)].x, 
+			_combined_points->points[points_idx_in_safety_sphere.at(i)].y,
+			-_combined_points->points[points_idx_in_safety_sphere.at(i)].z
 		);
 
-		float factor = 1 - (_safety_sphere_radius / obst_vect.stableNorm());
+		float factor = 1 - (_safety_sphere_radius / obst_vect.norm());
 		// RCLCPP_INFO(this->get_logger(),  "factor: %f", factor);
 
 		obst_vect.normalize();
@@ -609,7 +818,7 @@ vector_t OffboardControl::speed_limiter() {
 	// RCLCPP_INFO(this->get_logger(),  "Y: %f", safety_rejection_vector_sum(1));
 	// RCLCPP_INFO(this->get_logger(),  "Z: %f", safety_rejection_vector_sum(2));
 
-	if (safety_rejection_vector_sum.stableNorm() > 0.01)
+	if (safety_rejection_vector_sum.norm() > 0.01)
 	{
 		return (safety_rejection_vector_sum);
 	}
@@ -638,9 +847,9 @@ vector_t OffboardControl::speed_limiter() {
 	for (size_t i = 0; i < points_idx_in_caution_sphere.size(); i++)
 	{
 		vector_t obst_vect(
-			_combined_points->at(points_idx_in_caution_sphere.at(i)).x, 
-			_combined_points->at(points_idx_in_caution_sphere.at(i)).y,
-			_combined_points->at(points_idx_in_caution_sphere.at(i)).z
+			_combined_points->points[points_idx_in_caution_sphere.at(i)].x, 
+			_combined_points->points[points_idx_in_caution_sphere.at(i)].y,
+			_combined_points->points[points_idx_in_caution_sphere.at(i)].z
 		);
 
 		obst_vect.normalize();
@@ -702,7 +911,7 @@ vector_t OffboardControl::speed_limiter() {
 		//	i.e. between parellel and orthogonal (dotprod < 0), but not antiparallel
 
 		// 1 if fully parallel, 0 if perpendicular, -1 if opposite directions
-		float normalized_obst_dot_drone_vel = obst_vect.dot(drone_velocity_drone_frame.normalized());
+		float normalized_obst_dot_drone_vel = obst_vect.dot(normalized_drone_velocity_drone_frame);
 		if (normalized_obst_dot_drone_vel > 0)
 		{	
 
@@ -722,7 +931,7 @@ vector_t OffboardControl::speed_limiter() {
 
 			tangent = tangent * (normalized_obst_dot_drone_vel + 0.35) * 1.5;
 
-			float _cautiousness = _tangential_rejection_scalar * drone_velocity_drone_frame.stableNorm();
+			float _cautiousness = _tangential_rejection_scalar * drone_vel_magnitude;
 			float caution_truncate = distances_in_caution_sphere.at(i)-_safety_sphere_radius;
 
 			// make sure does not go negative when accidentally inside safety sphere
@@ -752,8 +961,6 @@ vector_t OffboardControl::speed_limiter() {
 	// get angle between obst vector and velocity vector - if inside cone and close enough wrt. speed, apply rejection
 	static const float max_angle = atan( 1.0 / (_look_ahead_cone_length_to_width_ratio*2) );// rad 
 
-	float drone_vel_magnitude = drone_velocity_drone_frame.stableNorm(); // sqrt(pow(this->_x_vel,2)+pow(this->_y_vel,2)+pow(this->_z_vel,2));
-
 	vector_t cone_rejection(
 		0.0,
 		0.0,
@@ -774,23 +981,25 @@ vector_t OffboardControl::speed_limiter() {
 		{
 						
 			vector_t point_i(
-				_combined_points->at(i).x,
-				_combined_points->at(i).y,
-				_combined_points->at(i).z
+				_combined_points->points[i].x,
+				_combined_points->points[i].y,
+				_combined_points->points[i].z
 			);
 
 			emergency_trigger_point = point_i;
+
+			const float point_i_dist = point_i.norm();
 			
-			float time_to_obst = (point_i.stableNorm() - _safety_sphere_radius) / drone_vel_magnitude; // dist approximately just x, save computation
+			float time_to_obst = (point_i_dist - _safety_sphere_radius) / drone_vel_magnitude; // dist approximately just x, save computation
 
 			// if distance is within safety margin AND obstacle along positive direction of drone velocity
 			// add cross product check here to easily verify if inside cone??
 
-			float obst_vel_angle = acos( drone_velocity_drone_frame.dot( point_i ) / (drone_velocity_drone_frame.stableNorm() * point_i.stableNorm()) );
+			float obst_vel_angle = acos( drone_velocity_drone_frame.dot( point_i ) / (drone_vel_magnitude * point_i_dist) );
 
 			if ( time_to_obst < ( time_to_stop * _braking_safety_factor ) && obst_vel_angle < max_angle)
 			{
-				cone_rejection = -drone_velocity_drone_frame.normalized() * 2.0;
+				cone_rejection = -normalized_drone_velocity_drone_frame * 2.0;
 				// cone_rejection(2) = -cone_rejection(2); // negation really needed??
 				emergency_brake = true;
 				// RCLCPP_INFO(this->get_logger(),  "Look ahead cone length: %f:", _look_ahead_cone_length);
@@ -801,7 +1010,7 @@ vector_t OffboardControl::speed_limiter() {
 
 
 				// calculate emergency avoidance tangent
-				float normalized_obst_dot_drone_vel = emergency_trigger_point.dot(drone_velocity_drone_frame.normalized());
+				float normalized_obst_dot_drone_vel = emergency_trigger_point.dot(normalized_drone_velocity_drone_frame);
 				if (normalized_obst_dot_drone_vel > 0.0)
 				{	
 
@@ -951,12 +1160,12 @@ vector_t OffboardControl::speed_limiter() {
 	for (size_t i = 0; i < _combined_points->size(); i++)
 	{
 		vector_t obst_vect(
-			_combined_points->at(i).x, 
-			_combined_points->at(i).y,
-			_combined_points->at(i).z
+			_combined_points->points[i].x, 
+			_combined_points->points[i].y,
+			_combined_points->points[i].z
 		);
 
-		float obst_vect_l2norm = obst_vect.stableNorm();
+		float obst_vect_l2norm = obst_vect.norm();
 		if (obst_vect_l2norm < _side_detection_range)
 		{
 
@@ -1003,34 +1212,6 @@ vector_t OffboardControl::speed_limiter() {
 }
 
 void OffboardControl::input_to_output_setpoint() {
-
-	// // static pose_t last_given_pose;
-	// // static pose_t latched_drone_pose; 
-	// // static bool latched_pose = false;
-	// pose_t pose_to_publish;
-
-	// // // if no input velocity and no drone velocity, control for last received position
-	// // if (rotated_input_velocity.norm() < 0.01)
-	// // {
-		
-	// // 	if (latched_pose == false)
-	// // 	{
-	// // 		latched_drone_pose = last_given_pose;// _drone_pose;
-	// // 	}
-
-	// // 	latched_pose = true;
-
-	// // 	pose_to_publish = latched_drone_pose;
-
-	// // }
-	// // else 
-	// // {
-	// // 	latched_pose = false;
-
-	// // 	pose_to_publish = _drone_pose;
-	// // }
-	
-	// pose_to_publish = _drone_pose;
 
 	// get local->world rotation (inverse of world->local)
 	quat_t local_to_world_quat = quatInv(_drone_pose_yaw_only.quaternion);
@@ -1082,20 +1263,11 @@ void OffboardControl::publish_markers() {
 
 	visualization_msgs::msg::MarkerArray marker_array;
 
+
 	///////////////////////////////////////////////////////////
 	// input velocity arrow
-	visualization_msgs::msg::Marker input_velocity_marker;
-	input_velocity_marker.header = std_msgs::msg::Header();
-	input_velocity_marker.header.stamp = this->now();
-	input_velocity_marker.header.frame_id = "drone_yaw_only";
-
-	input_velocity_marker.ns = "input_velocity_arrow";
-	input_velocity_marker.id = 1;
-
-	input_velocity_marker.type = visualization_msgs::msg::Marker::ARROW;
-
-	input_velocity_marker.action = visualization_msgs::msg::Marker::ADD;
-
+	_input_velocity_marker.header.stamp = this->now();
+	
 	vector_t unit_x_vector(
 		1.0,
 		0.0,
@@ -1119,44 +1291,24 @@ void OffboardControl::publish_markers() {
 
 	quat_t arrow_rotation = findRotation(unit_x_vector, input_velocity_vector);
 
-	input_velocity_marker.pose.orientation.x = arrow_rotation(0);
-	input_velocity_marker.pose.orientation.y = arrow_rotation(1);
-	input_velocity_marker.pose.orientation.z = arrow_rotation(2);
-	input_velocity_marker.pose.orientation.w = arrow_rotation(3);
-	input_velocity_marker.pose.position.x = 0.0; //_drone_pose.position(0);
-	input_velocity_marker.pose.position.y = 0.0; //_drone_pose.position(1);
-	input_velocity_marker.pose.position.z = 0.0; //_drone_pose.position(2); 
+	_input_velocity_marker.pose.orientation.x = arrow_rotation(0);
+	_input_velocity_marker.pose.orientation.y = arrow_rotation(1);
+	_input_velocity_marker.pose.orientation.z = arrow_rotation(2);
+	_input_velocity_marker.pose.orientation.w = arrow_rotation(3);
 
 	// Set the scale of the marker -- 1x1x1 here means 1m on a side
-	input_velocity_marker.scale.x = input_velocity_vector.stableNorm(); 
-	input_velocity_marker.scale.y = input_velocity_marker.scale.x / 5;
-	input_velocity_marker.scale.z = input_velocity_marker.scale.x / 5;
-	// Set the color -- be sure to set alpha to something non-zero!
-	input_velocity_marker.color.r = 0.0f;
-	input_velocity_marker.color.g = 1.0f;
-	input_velocity_marker.color.b = 0.0f;
-	input_velocity_marker.color.a = 0.25;
+	_input_velocity_marker.scale.x = input_velocity_vector.stableNorm(); 
+	_input_velocity_marker.scale.y = _input_velocity_marker.scale.x / 5;
+	_input_velocity_marker.scale.z = _input_velocity_marker.scale.x / 5;
 
-	input_velocity_marker.lifetime = rclcpp::Duration::from_seconds(0);
-
-	marker_array.markers.push_back(input_velocity_marker);
+	marker_array.markers.push_back(_input_velocity_marker);
 
 
 
 
 	///////////////////////////////////////////////////////////
 	// drone velocity arrow
-	visualization_msgs::msg::Marker drone_velocity_marker;
-	drone_velocity_marker.header = std_msgs::msg::Header();
-	drone_velocity_marker.header.stamp = this->now();
-	drone_velocity_marker.header.frame_id = "world";
-
-	drone_velocity_marker.ns = "velocity_arrow";
-	drone_velocity_marker.id = 0;
-
-	drone_velocity_marker.type = visualization_msgs::msg::Marker::ARROW;
-
-	drone_velocity_marker.action = visualization_msgs::msg::Marker::ADD;
+	_drone_velocity_marker.header.stamp = _input_velocity_marker.header.stamp; //this->now();
 
 	vector_t drone_velocity_vector(
 		_x_vel,
@@ -1166,45 +1318,27 @@ void OffboardControl::publish_markers() {
 
 	quat_t drone_arrow_rotation = findRotation(unit_x_vector, drone_velocity_vector);
 
-	drone_velocity_marker.pose.orientation.x = drone_arrow_rotation(0);
-	drone_velocity_marker.pose.orientation.y = drone_arrow_rotation(1);
-	drone_velocity_marker.pose.orientation.z = drone_arrow_rotation(2);
-	drone_velocity_marker.pose.orientation.w = drone_arrow_rotation(3);
-	drone_velocity_marker.pose.position.x = _drone_pose.position(0); //0; 
-	drone_velocity_marker.pose.position.y = _drone_pose.position(1); //0;
-	drone_velocity_marker.pose.position.z = _drone_pose.position(2); //0; 
+	_drone_velocity_marker.pose.orientation.x = drone_arrow_rotation(0);
+	_drone_velocity_marker.pose.orientation.y = drone_arrow_rotation(1);
+	_drone_velocity_marker.pose.orientation.z = drone_arrow_rotation(2);
+	_drone_velocity_marker.pose.orientation.w = drone_arrow_rotation(3);
+	_drone_velocity_marker.pose.position.x = _drone_pose.position(0); //0; 
+	_drone_velocity_marker.pose.position.y = _drone_pose.position(1); //0;
+	_drone_velocity_marker.pose.position.z = _drone_pose.position(2); //0; 
 
 	// Set the scale of the marker -- 1x1x1 here means 1m on a side
-	drone_velocity_marker.scale.x = drone_velocity_vector.stableNorm(); //(pow(this->_x_vel,2)+pow(this->_y_vel,2)+pow(this->_z_vel,2));
-	drone_velocity_marker.scale.y = drone_velocity_marker.scale.x / 5;
-	drone_velocity_marker.scale.z = drone_velocity_marker.scale.x / 5;
-	// Set the color -- be sure to set alpha to something non-zero!
-	drone_velocity_marker.color.r = 1.0f;
-	drone_velocity_marker.color.g = 0.0f;
-	drone_velocity_marker.color.b = 0.0f;
-	drone_velocity_marker.color.a = 0.4;
+	_drone_velocity_marker.scale.x = drone_velocity_vector.stableNorm(); //(pow(this->_x_vel,2)+pow(this->_y_vel,2)+pow(this->_z_vel,2));
+	_drone_velocity_marker.scale.y = _drone_velocity_marker.scale.x / 5;
+	_drone_velocity_marker.scale.z = _drone_velocity_marker.scale.x / 5;
 
-	drone_velocity_marker.lifetime = rclcpp::Duration::from_seconds(0);
-
-	marker_array.markers.push_back(drone_velocity_marker);
-
+	marker_array.markers.push_back(_drone_velocity_marker);
 
 
 
 	
 	///////////////////////////////////////////////////////////
 	// output velocity arrow
-	visualization_msgs::msg::Marker out_velocity_marker;
-	out_velocity_marker.header = std_msgs::msg::Header();
-	out_velocity_marker.header.stamp = this->now();
-	out_velocity_marker.header.frame_id = "drone_yaw_only";
-
-	out_velocity_marker.ns = "out_vel_arrow";
-	out_velocity_marker.id = 40;
-
-	out_velocity_marker.type = visualization_msgs::msg::Marker::ARROW;
-
-	out_velocity_marker.action = visualization_msgs::msg::Marker::ADD;
+	_out_velocity_marker.header.stamp = _input_velocity_marker.header.stamp; //this->now();
 
 	vector_t temp_out_vector(
 		_out_vel_vector(0),
@@ -1214,27 +1348,17 @@ void OffboardControl::publish_markers() {
 
 	quat_t out_arrow_rotation = findRotation(unit_x_vector, temp_out_vector);
 
-	out_velocity_marker.pose.orientation.x = out_arrow_rotation(0);
-	out_velocity_marker.pose.orientation.y = out_arrow_rotation(1);
-	out_velocity_marker.pose.orientation.z = out_arrow_rotation(2);
-	out_velocity_marker.pose.orientation.w = out_arrow_rotation(3);
-	out_velocity_marker.pose.position.x = 0.0; //0; 
-	out_velocity_marker.pose.position.y = 0.0; //0;
-	out_velocity_marker.pose.position.z = 0.0; //0; 
+	_out_velocity_marker.pose.orientation.x = out_arrow_rotation(0);
+	_out_velocity_marker.pose.orientation.y = out_arrow_rotation(1);
+	_out_velocity_marker.pose.orientation.z = out_arrow_rotation(2);
+	_out_velocity_marker.pose.orientation.w = out_arrow_rotation(3);
 
 	// Set the scale of the marker -- 1x1x1 here means 1m on a side
-	out_velocity_marker.scale.x = _out_vel_vector.stableNorm();
-	out_velocity_marker.scale.y = out_velocity_marker.scale.x / 5;
-	out_velocity_marker.scale.z = out_velocity_marker.scale.x / 5;
-	// Set the color -- be sure to set alpha to something non-zero!
-	out_velocity_marker.color.r = 1.0f;
-	out_velocity_marker.color.g = 1.0f;
-	out_velocity_marker.color.b = 0.0f;
-	out_velocity_marker.color.a = 0.4;
+	_out_velocity_marker.scale.x = _out_vel_vector.stableNorm();
+	_out_velocity_marker.scale.y = _out_velocity_marker.scale.x / 5;
+	_out_velocity_marker.scale.z = _out_velocity_marker.scale.x / 5;
 
-	out_velocity_marker.lifetime = rclcpp::Duration::from_seconds(0);
-
-	marker_array.markers.push_back(out_velocity_marker);
+	marker_array.markers.push_back(_out_velocity_marker);
 
 
 
@@ -1242,150 +1366,81 @@ void OffboardControl::publish_markers() {
 
 	///////////////////////////////////////////////////////////
 	// obstacle tangent arrow
-	visualization_msgs::msg::Marker obst_tangent_marker;
-	obst_tangent_marker.header = std_msgs::msg::Header();
-	obst_tangent_marker.header.stamp = this->now();
-	obst_tangent_marker.header.frame_id = "drone_yaw_only";
-	obst_tangent_marker.ns = "obst_tangent_arrow";
-	obst_tangent_marker.id = 45;
-	obst_tangent_marker.type = visualization_msgs::msg::Marker::ARROW;
-	obst_tangent_marker.action = visualization_msgs::msg::Marker::ADD;
+	_obst_tangent_marker.header.stamp = _input_velocity_marker.header.stamp; //this->now();
 
 	quat_t obst_tangent_arrow_rotation = findRotation(unit_x_vector, _obst_tangent_vector);
 
-	obst_tangent_marker.pose.orientation.x = obst_tangent_arrow_rotation(0);
-	obst_tangent_marker.pose.orientation.y = obst_tangent_arrow_rotation(1);
-	obst_tangent_marker.pose.orientation.z = obst_tangent_arrow_rotation(2);
-	obst_tangent_marker.pose.orientation.w = obst_tangent_arrow_rotation(3);
-	obst_tangent_marker.pose.position.x = 0.0; //_drone_pose.position(0);
-	obst_tangent_marker.pose.position.y = 0.0; //_drone_pose.position(1);
-	obst_tangent_marker.pose.position.z = 0.0; //_drone_pose.position(2); 
+	_obst_tangent_marker.pose.orientation.x = obst_tangent_arrow_rotation(0);
+	_obst_tangent_marker.pose.orientation.y = obst_tangent_arrow_rotation(1);
+	_obst_tangent_marker.pose.orientation.z = obst_tangent_arrow_rotation(2);
+	_obst_tangent_marker.pose.orientation.w = obst_tangent_arrow_rotation(3);
 
 	// Set the scale of the marker -- 1x1x1 here means 1m on a side
-	obst_tangent_marker.scale.x = _obst_tangent_vector.stableNorm();
-	obst_tangent_marker.scale.y = obst_tangent_marker.scale.x / 5;
-	obst_tangent_marker.scale.z = obst_tangent_marker.scale.x / 5;
-	// Set the color -- be sure to set alpha to something non-zero!
-	obst_tangent_marker.color.r = 1.0f;
-	obst_tangent_marker.color.g = 0.0f;
-	obst_tangent_marker.color.b = 1.0f;
-	obst_tangent_marker.color.a = 0.4;
+	_obst_tangent_marker.scale.x = _obst_tangent_vector.stableNorm();
+	_obst_tangent_marker.scale.y = _obst_tangent_marker.scale.x / 5;
+	_obst_tangent_marker.scale.z = _obst_tangent_marker.scale.x / 5;
 
-	obst_tangent_marker.lifetime = rclcpp::Duration::from_seconds(0);
-
-	marker_array.markers.push_back(obst_tangent_marker);
+	marker_array.markers.push_back(_obst_tangent_marker);
 
 
 
 	///////////////////////////////////////////////////////////
 	// safety bubble sphere
-	visualization_msgs::msg::Marker safety_bubble_marker;
-	safety_bubble_marker.header = std_msgs::msg::Header();
-	safety_bubble_marker.header.stamp = this->now();
-	safety_bubble_marker.header.frame_id = "world";
-	safety_bubble_marker.ns = "safety_bubble";
-	safety_bubble_marker.id = 2;
-	safety_bubble_marker.type = visualization_msgs::msg::Marker::SPHERE;
-	safety_bubble_marker.action = visualization_msgs::msg::Marker::ADD;
+	_safety_bubble_marker.header.stamp = _input_velocity_marker.header.stamp; //this->now();
 
-	safety_bubble_marker.pose.orientation.x = _drone_pose.quaternion(0);
-	safety_bubble_marker.pose.orientation.y = _drone_pose.quaternion(1);
-	safety_bubble_marker.pose.orientation.z = _drone_pose.quaternion(2);
-	safety_bubble_marker.pose.orientation.w = _drone_pose.quaternion(3);
-	safety_bubble_marker.pose.position.x = _drone_pose.position(0); 
-	safety_bubble_marker.pose.position.y = _drone_pose.position(1);
-	safety_bubble_marker.pose.position.z = _drone_pose.position(2); 
+	_safety_bubble_marker.pose.orientation.x = _drone_pose.quaternion(0);
+	_safety_bubble_marker.pose.orientation.y = _drone_pose.quaternion(1);
+	_safety_bubble_marker.pose.orientation.z = _drone_pose.quaternion(2);
+	_safety_bubble_marker.pose.orientation.w = _drone_pose.quaternion(3);
+	_safety_bubble_marker.pose.position.x = _drone_pose.position(0); 
+	_safety_bubble_marker.pose.position.y = _drone_pose.position(1);
+	_safety_bubble_marker.pose.position.z = _drone_pose.position(2); 
 
-	// Set the scale of the marker -- 1x1x1 here means 1m on a side
-	safety_bubble_marker.scale.x = _safety_sphere_radius * 2; /// make parameter
-	safety_bubble_marker.scale.y = safety_bubble_marker.scale.x;
-	safety_bubble_marker.scale.z = safety_bubble_marker.scale.x;
-	// Set the color -- be sure to set alpha to something non-zero!
-	safety_bubble_marker.color.r = 1.0f;
-	safety_bubble_marker.color.g = 0.0f;
-	safety_bubble_marker.color.b = 0.0f;
-	safety_bubble_marker.color.a = 0.25;
-
-	safety_bubble_marker.lifetime = rclcpp::Duration::from_seconds(0);
-
-	marker_array.markers.push_back(safety_bubble_marker);
+	marker_array.markers.push_back(_safety_bubble_marker);
 
 
 
 
 	///////////////////////////////////////////////////////////
 	// caution bubble sphere
-	visualization_msgs::msg::Marker caution_sphere_marker;
-	caution_sphere_marker.header = std_msgs::msg::Header();
-	caution_sphere_marker.header.stamp = this->now();
-	caution_sphere_marker.header.frame_id = "world";
-	caution_sphere_marker.ns = "caution_sphere";
-	caution_sphere_marker.id = 2;
-	caution_sphere_marker.type = visualization_msgs::msg::Marker::SPHERE;
-	caution_sphere_marker.action = visualization_msgs::msg::Marker::ADD;
+	_caution_sphere_marker.header.stamp = _input_velocity_marker.header.stamp; //this->now();
 
-	caution_sphere_marker.pose.orientation.x = _drone_pose.quaternion(0);
-	caution_sphere_marker.pose.orientation.y = _drone_pose.quaternion(1);
-	caution_sphere_marker.pose.orientation.z = _drone_pose.quaternion(2);
-	caution_sphere_marker.pose.orientation.w = _drone_pose.quaternion(3);
-	caution_sphere_marker.pose.position.x = _drone_pose.position(0); 
-	caution_sphere_marker.pose.position.y = _drone_pose.position(1);
-	caution_sphere_marker.pose.position.z = _drone_pose.position(2); 
+	_caution_sphere_marker.pose.orientation.x = _drone_pose.quaternion(0);
+	_caution_sphere_marker.pose.orientation.y = _drone_pose.quaternion(1);
+	_caution_sphere_marker.pose.orientation.z = _drone_pose.quaternion(2);
+	_caution_sphere_marker.pose.orientation.w = _drone_pose.quaternion(3);
+	_caution_sphere_marker.pose.position.x = _drone_pose.position(0); 
+	_caution_sphere_marker.pose.position.y = _drone_pose.position(1);
+	_caution_sphere_marker.pose.position.z = _drone_pose.position(2); 
 
-	// Set the scale of the marker -- 1x1x1 here means 1m on a side
-	caution_sphere_marker.scale.x = _caution_sphere_radius * 2; /// make parameter
-	caution_sphere_marker.scale.y = caution_sphere_marker.scale.x;
-	caution_sphere_marker.scale.z = caution_sphere_marker.scale.x;
 	// Set the color -- be sure to set alpha to something non-zero!
-	caution_sphere_marker.color.r = (float)_in_caution_sphere;
-	caution_sphere_marker.color.g = (float)(!_in_caution_sphere);
-	caution_sphere_marker.color.b = 0.0f;
-	caution_sphere_marker.color.a = 0.15;
+	_caution_sphere_marker.color.r = (float)_in_caution_sphere;
+	_caution_sphere_marker.color.g = (float)(!_in_caution_sphere);
 
-	caution_sphere_marker.lifetime = rclcpp::Duration::from_seconds(0);
-
-	marker_array.markers.push_back(caution_sphere_marker);
+	marker_array.markers.push_back(_caution_sphere_marker);
 
 
 
 
 	///////////////////////////////////////////////////////////
 	// look-ahead volume
-	visualization_msgs::msg::Marker look_ahead_marker;
-	look_ahead_marker.header = std_msgs::msg::Header();
-	look_ahead_marker.header.stamp = this->now();
-	look_ahead_marker.header.frame_id = "world";
-	look_ahead_marker.ns = "look_ahead";
-	look_ahead_marker.id = 20;
-	look_ahead_marker.type = visualization_msgs::msg::Marker::MESH_RESOURCE;
-	std::string home_dir = std::getenv("HOME");
-	std::string mesh_path = std::string("file://") + home_dir + std::string("/look_ahead_cone.stl");
-	look_ahead_marker.mesh_resource = mesh_path;
-	look_ahead_marker.action = visualization_msgs::msg::Marker::ADD;
+	_look_ahead_marker.header.stamp = _input_velocity_marker.header.stamp; //this->now();
 
-	look_ahead_marker.pose.orientation.x = drone_arrow_rotation(0);
-	look_ahead_marker.pose.orientation.y = drone_arrow_rotation(1);
-	look_ahead_marker.pose.orientation.z = drone_arrow_rotation(2);
-	look_ahead_marker.pose.orientation.w = drone_arrow_rotation(3);
-	look_ahead_marker.pose.position.x = _drone_pose.position(0); //0; 
-	look_ahead_marker.pose.position.y = _drone_pose.position(1); //0;
-	look_ahead_marker.pose.position.z = _drone_pose.position(2); //0; 
+	_look_ahead_marker.pose.orientation.x = drone_arrow_rotation(0);
+	_look_ahead_marker.pose.orientation.y = drone_arrow_rotation(1);
+	_look_ahead_marker.pose.orientation.z = drone_arrow_rotation(2);
+	_look_ahead_marker.pose.orientation.w = drone_arrow_rotation(3);
+	_look_ahead_marker.pose.position.x = _drone_pose.position(0); //0; 
+	_look_ahead_marker.pose.position.y = _drone_pose.position(1); //0;
+	_look_ahead_marker.pose.position.z = _drone_pose.position(2); //0; 
 
 	// Set the scale of the marker -- 1x1x1 here means 1m on a side
-	look_ahead_marker.scale.x = _look_ahead_cone_length * 2; // times 2 because marker scale also extends into negative axis?
-	look_ahead_marker.scale.y = look_ahead_marker.scale.x / _look_ahead_cone_length_to_width_ratio;
-	look_ahead_marker.scale.z = look_ahead_marker.scale.x / _look_ahead_cone_length_to_width_ratio;
-	// Set the color -- be sure to set alpha to something non-zero!
-	look_ahead_marker.color.r = 0.9f;
-	look_ahead_marker.color.g = 0.9f;
-	look_ahead_marker.color.b = 0.9f;
-	look_ahead_marker.color.a = 0.75f;
+	_look_ahead_marker.scale.x = _look_ahead_cone_length * 2; // times 2 because marker scale also extends into negative axis?
+	_look_ahead_marker.scale.y = _look_ahead_marker.scale.x / _look_ahead_cone_length_to_width_ratio;
+	_look_ahead_marker.scale.z = _look_ahead_marker.scale.x / _look_ahead_cone_length_to_width_ratio;
 
-	look_ahead_marker.lifetime = rclcpp::Duration::from_seconds(0);
-
-	marker_array.markers.push_back(look_ahead_marker);
+	marker_array.markers.push_back(_look_ahead_marker);
 	
-
 
 
 
@@ -1397,69 +1452,60 @@ void OffboardControl::publish_path() {
 	// limit length
 	// offboard and manual paths
 
-	static auto manual_path_msg = nav_msgs::msg::Path();
-	manual_path_msg.header.stamp = this->now();
-	manual_path_msg.header.frame_id = "world";
+	_manual_path_msg.header.stamp = this->now();
 
-	static auto offboard_path_msg = nav_msgs::msg::Path();
-	offboard_path_msg.header.stamp = this->now();
-	offboard_path_msg.header.frame_id = "world";
+	_offboard_path_msg.header.stamp = this->now();
 
-	auto pose_msg = geometry_msgs::msg::PoseStamped();
-	pose_msg.header.stamp = this->now();
-	pose_msg.header.frame_id = "world";
+	_pose_msg.header.stamp = this->now();
 
-	_drone_pose_mutex.lock(); {
 
-		pose_msg.pose.position.x = _drone_pose.position(0);
-		pose_msg.pose.position.y = _drone_pose.position(1);
-		pose_msg.pose.position.z = _drone_pose.position(2);
+	_pose_msg.pose.position.x = _drone_pose.position(0);
+	_pose_msg.pose.position.y = _drone_pose.position(1);
+	_pose_msg.pose.position.z = _drone_pose.position(2);
 
-		pose_msg.pose.orientation.x = _drone_pose.quaternion(0);
-		pose_msg.pose.orientation.y = _drone_pose.quaternion(1);
-		pose_msg.pose.orientation.z = _drone_pose.quaternion(2);
-		pose_msg.pose.orientation.w = _drone_pose.quaternion(3);
-
-	} _drone_pose_mutex.unlock();
+	_pose_msg.pose.orientation.x = _drone_pose.quaternion(0);
+	_pose_msg.pose.orientation.y = _drone_pose.quaternion(1);
+	_pose_msg.pose.orientation.z = _drone_pose.quaternion(2);
+	_pose_msg.pose.orientation.w = _drone_pose.quaternion(3);
 
 
 	if (_in_offboard)
 	{
 		float dist = 99999.9;
 
-		if (offboard_path_msg.poses.size() > 0 )
+		if (_offboard_path_msg.poses.size() > 0 )
 		{		
-			float x_diff = offboard_path_msg.poses.back().pose.position.x - pose_msg.pose.position.x;
-			float y_diff = offboard_path_msg.poses.back().pose.position.y - pose_msg.pose.position.y;
-			float z_diff = offboard_path_msg.poses.back().pose.position.z - pose_msg.pose.position.z;
-			dist = sqrt(pow(x_diff, 2) + pow(y_diff, 2) + pow(z_diff, 2));
+			float x_diff = _offboard_path_msg.poses.back().pose.position.x - _pose_msg.pose.position.x;
+			float y_diff = _offboard_path_msg.poses.back().pose.position.y - _pose_msg.pose.position.y;
+			float z_diff = _offboard_path_msg.poses.back().pose.position.z - _pose_msg.pose.position.z;
+			dist = std::hypot(std::hypot(x_diff, y_diff), z_diff); //(pow(x_diff, 2) + pow(y_diff, 2) + pow(z_diff, 2));
 		}		
 
 		if(dist > 1.0)
 		{
-			offboard_path_msg.poses.push_back(pose_msg);
-			_offboard_path_pub->publish(offboard_path_msg);
+			_offboard_path_msg.poses.push_back(_pose_msg);
+			_offboard_path_pub->publish(_offboard_path_msg);
 		}
-		manual_path_msg.poses.clear();
+		_manual_path_msg.poses.clear();
 	}
 	else
 	{
 		float dist = 99999.9;
 
-		if (manual_path_msg.poses.size() > 0 )
+		if (_manual_path_msg.poses.size() > 0 )
 		{	
-			float x_diff = manual_path_msg.poses.back().pose.position.x - pose_msg.pose.position.x;
-			float y_diff = manual_path_msg.poses.back().pose.position.y - pose_msg.pose.position.y;
-			float z_diff = manual_path_msg.poses.back().pose.position.z - pose_msg.pose.position.z;
-			dist = sqrt(pow(x_diff, 2) + pow(y_diff, 2) + pow(z_diff, 2));
+			float x_diff = _manual_path_msg.poses.back().pose.position.x - _pose_msg.pose.position.x;
+			float y_diff = _manual_path_msg.poses.back().pose.position.y - _pose_msg.pose.position.y;
+			float z_diff = _manual_path_msg.poses.back().pose.position.z - _pose_msg.pose.position.z;
+			dist = std::hypot(std::hypot(x_diff, y_diff), z_diff); //sqrt(pow(x_diff, 2) + pow(y_diff, 2) + pow(z_diff, 2));
 		}	
 
 		if(dist > 1.0)
 		{
-			manual_path_msg.poses.push_back(pose_msg);
-			_manual_path_pub->publish(manual_path_msg);
+			_manual_path_msg.poses.push_back(_pose_msg);
+			_manual_path_pub->publish(_manual_path_msg);
 		}
-		offboard_path_msg.poses.clear();
+		_offboard_path_msg.poses.clear();
 	}
 		
 }
@@ -1518,7 +1564,6 @@ void OffboardControl::flight_state_machine() {
 		if(_counter == 10 && _launch_with_debug > 0){
 			RCLCPP_INFO(this->get_logger(), "\n \nManual offboard mode \n");
 		}
-		// publish_tracking_setpoint();
 		// input_to_output_setpoint();
 
 	}
@@ -1618,99 +1663,6 @@ void OffboardControl::publish_offboard_control_mode() const {
 	_offboard_control_mode_publisher->publish(msg);
 }
 
-
-/**
- * @brief Publish a trajectory setpoint
- *        Should go to align with cable of choice there
- */
-void OffboardControl::publish_tracking_setpoint() {
-
-	if (_alignment_pose.position(0) == 0 && 
-		_alignment_pose.position(1) == 0 && 
-		_alignment_pose.position(2) == 0)
-	{
-		RCLCPP_INFO(this->get_logger(), "Nothing to align with - holding position");
-		OffboardControl::publish_hold_setpoint();
-		return;
-	}
-	
-
-	float pos_frac;
-	this->get_parameter("pos_frac", pos_frac);
-
-	float yaw_frac;
-	this->get_parameter("yaw_frac", yaw_frac);
-	static float tmp_follow_speed;
-	this->get_parameter("powerline_following_speed", tmp_follow_speed);
-
-	orientation_t target_yaw_eul;
-
-	pose_eul_t publish_pose;
-
-	_powerline_mutex.lock(); {
-	_drone_pose_mutex.lock(); {
-		
-		// calculate fractional yaw positions (basic porportional control)
-		target_yaw_eul = quatToEul(_alignment_pose.quaternion);
-
-		float cur_yaw = quatToEul(_drone_pose.quaternion)(2); 
-		float target_yaw = target_yaw_eul(2);
-		
-		if ( abs(cur_yaw - target_yaw) <= (float)M_PI )
-		{
-			target_yaw = cur_yaw + (target_yaw - cur_yaw)*yaw_frac;			
-		}
-		else 
-		{
-			float diff = (2*M_PI - target_yaw) + cur_yaw;
-
-			target_yaw = cur_yaw - diff*yaw_frac;			
-		}
-
-
-		publish_pose.position(0) = _drone_pose.position(0) + (_alignment_pose.position(0) - _drone_pose.position(0))*pos_frac;
-		publish_pose.position(1) = _drone_pose.position(1) + (_alignment_pose.position(1) - _drone_pose.position(1))*pos_frac;
-		publish_pose.position(2) = _drone_pose.position(2) + (_alignment_pose.position(2) - _drone_pose.position(2))*pos_frac;		
-
-		publish_pose.orientation(0) = 0.0;
-		publish_pose.orientation(1) = 0.0;
-		publish_pose.orientation(2) = target_yaw;
-
-
-	} _drone_pose_mutex.unlock();
-	} _powerline_mutex.unlock();
-
-	point_t unit_x(
-		1.0 * tmp_follow_speed,
-		0.0,
-		0.0
-	);
-
-
-	publish_pose = pose_eul_NWU_to_NED(publish_pose);
-	
-	// rotate unit x (1,0,0) velocity to align with powerline direction
-	rotation_matrix_t rot_mat = quatToMat(_alignment_pose.quaternion);
-	point_t unit_velocity = rotateVector(rot_mat, unit_x);
-
-	// rotate powerline direction velocity from NWU to NED frame
-	static rotation_matrix_t R_NWU_to_NED = eulToR(orientation_t(-M_PI, 0, 0));
-	unit_velocity = rotateVector(R_NWU_to_NED, unit_velocity);
-
-	px4_msgs::msg::TrajectorySetpoint msg{};
-	msg.timestamp = _timestamp.load();
-	msg.x = publish_pose.position(0); // in meters NED
-	msg.y = publish_pose.position(1); // in meters NED
-	msg.z = publish_pose.position(2); // in meters NED
-	msg.yaw = publish_pose.orientation(2); // rotation around z NED in radians
-	msg.vx = unit_velocity(0); // m/s NED
-	msg.vy = unit_velocity(1); // m/s NED
-	msg.vz = unit_velocity(2); // m/s NED
-
-	// RCLCPP_INFO(this->get_logger(), "Xv:%f Yv:%f Zv:%f", msg.velocity[0], msg.velocity[1], msg.velocity[2]);
-
-	OffboardControl::publish_setpoint(msg);
-}
 
 
 /**
