@@ -61,19 +61,31 @@ explicit
 
         // Roll PI to get odo location in world frame
         R_NED_to_body_frame = eulToR(orientation_t(M_PI, 0, 0));
+
+        _t_yaw.header.frame_id = world_frame_id_;
+        _t_yaw.child_frame_id = drone_yaw_frame_id_;
+
+        _t.header.frame_id = world_frame_id_;
+        _t.child_frame_id = drone_frame_id_;
+
+        _t_vel.header.frame_id = world_frame_id_;
+        _t_vel.child_frame_id = "drone_velocity";
+
     }
 
 private:
     void odometryCallback(const std::shared_ptr<px4_msgs::msg::VehicleOdometry> msg) {
 
         rclcpp::Time now = this->get_clock()->now();
-        geometry_msgs::msg::TransformStamped t;
 
-        // Read message content and assign it to
+        if (now - last_pub_ < min_period_) { // only update transforms at 1/min_period_ Hz
+            return;
+        }
+        last_pub_ = now;
+        
         // corresponding tf variables
-        t.header.stamp = now;
-        t.header.frame_id = world_frame_id_;
-        t.child_frame_id = drone_frame_id_;
+        _t.header.stamp = now;
+
 
         point_t position(
             msg->x,
@@ -91,27 +103,22 @@ private:
             msg->q[2]
         );
 
-        quat_t RollYaw_PI_quat (
-            0.0,
-            -1.0,
-            0.0,
-            0.0
-        );
+        
 
         // Roll PI and Yaw PI to orient odo frame with world frame
-        quat = quatMultiply(quat, RollYaw_PI_quat);
+        quat = quatMultiply(quat, _RollYaw_PI_quat);
 
-        t.transform.translation.x = position(0);
-        t.transform.translation.y = position(1);
-        t.transform.translation.z = position(2);
+        _t.transform.translation.x = position(0);
+        _t.transform.translation.y = position(1);
+        _t.transform.translation.z = position(2);
   
-        t.transform.rotation.x = quat(0);
-        t.transform.rotation.y = quat(1);
-        t.transform.rotation.z = quat(2);
-        t.transform.rotation.w = quat(3);
+        _t.transform.rotation.x = quat(0);
+        _t.transform.rotation.y = quat(1);
+        _t.transform.rotation.z = quat(2);
+        _t.transform.rotation.w = quat(3);
 
         // Send the transformation
-        tf_broadcaster_->sendTransform(t);
+        tf_broadcaster_->sendTransform(_t);
 
 
 
@@ -120,14 +127,10 @@ private:
 
 
         //////// world to drone (no roll+pitch) transform
-        geometry_msgs::msg::TransformStamped t_yaw;
 
-        // Read message content and assign it to
         // corresponding tf variables
-        t_yaw.header.stamp = now;
-        t_yaw.header.frame_id = world_frame_id_;
-        t_yaw.child_frame_id = drone_yaw_frame_id_;
-
+        _t_yaw.header.stamp = now;
+        
         float drone_yaw = quaternionToYaw(quat);
 
         // RCLCPP_INFO(this->get_logger(),  "Yaw: %f", drone_yaw);
@@ -143,16 +146,16 @@ private:
         // Roll PI and Yaw PI to orient odo frame with world frame
         quat = yaw_quat;//quatMultiply(yaw_quat, RollYaw_PI_quat);
 
-        t_yaw.transform.translation.x = position(0);
-        t_yaw.transform.translation.y = position(1);
-        t_yaw.transform.translation.z = position(2);
+        _t_yaw.transform.translation.x = position(0);
+        _t_yaw.transform.translation.y = position(1);
+        _t_yaw.transform.translation.z = position(2);
   
-        t_yaw.transform.rotation.x = quat(0);
-        t_yaw.transform.rotation.y = quat(1);
-        t_yaw.transform.rotation.z = quat(2);
-        t_yaw.transform.rotation.w = quat(3);
+        _t_yaw.transform.rotation.x = quat(0);
+        _t_yaw.transform.rotation.y = quat(1);
+        _t_yaw.transform.rotation.z = quat(2);
+        _t_yaw.transform.rotation.w = quat(3);
 
-        no_yaw_tf_broadcaster_->sendTransform(t_yaw);
+        no_yaw_tf_broadcaster_->sendTransform(_t_yaw);
 
 
 
@@ -167,31 +170,24 @@ private:
             -msg->vz
         );
 
-        vector_t unit_x_vector(
-            1.0,
-            0.0,
-            0.0
-        );
 
-        quat_t world_to_velocity_quat = findRotation(unit_x_vector, drone_velocity);
 
-        // Read message content and assign it to
+        quat_t world_to_velocity_quat = findRotation(_unit_x_vector, drone_velocity);
+
         // corresponding tf variables
-        t.header.stamp = now;
-        t.header.frame_id = "world";
-        t.child_frame_id = "drone_velocity";
+        _t_vel.header.stamp = now;
 
-        t.transform.translation.x = position(0);
-        t.transform.translation.y = position(1);
-        t.transform.translation.z = position(2);
+        _t_vel.transform.translation.x = position(0);
+        _t_vel.transform.translation.y = position(1);
+        _t_vel.transform.translation.z = position(2);
 
-        t.transform.rotation.x = world_to_velocity_quat(0);
-        t.transform.rotation.y = world_to_velocity_quat(1);
-        t.transform.rotation.z = world_to_velocity_quat(2);
-        t.transform.rotation.w = world_to_velocity_quat(3);
+        _t_vel.transform.rotation.x = world_to_velocity_quat(0);
+        _t_vel.transform.rotation.y = world_to_velocity_quat(1);
+        _t_vel.transform.rotation.z = world_to_velocity_quat(2);
+        _t_vel.transform.rotation.w = world_to_velocity_quat(3);
 
         // Send the transformation
-        _drone_velocity_frame_tf_broadcaster->sendTransform(t);
+        _drone_velocity_frame_tf_broadcaster->sendTransform(_t_vel);
 
     }
 
@@ -205,6 +201,17 @@ private:
     std::string drone_yaw_frame_id_;
     std::string drone_frame_id_;
     std::string world_frame_id_;
+
+    geometry_msgs::msg::TransformStamped _t_yaw;
+    geometry_msgs::msg::TransformStamped _t;  
+    geometry_msgs::msg::TransformStamped _t_vel;
+
+    rclcpp::Time last_pub_{0, 0, RCL_ROS_TIME};
+    const rclcpp::Duration min_period_{rclcpp::Duration::from_seconds(0.05)};  // 20 Hz
+
+    quat_t const _RollYaw_PI_quat{ 0.0f, -1.0f, 0.0f, 0.0f };
+    vector_t const _unit_x_vector{1.0f, 0.0f, 0.0f};
+
 
 };
 
