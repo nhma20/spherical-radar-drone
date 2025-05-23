@@ -9,6 +9,9 @@ from ament_index_python.packages import get_package_share_directory
 import os
 
 def generate_launch_description():
+
+    latency_offset_ns = 100_000_000
+
     config = os.path.join(
         get_package_share_directory('spherical-radar-drone'),
         'config',
@@ -84,7 +87,8 @@ def generate_launch_description():
             {'minimum_range': 0.3},
             {'publish_snr': False},
             {'publish_noise': False},
-            {'publish_velocity': True}
+            {'publish_velocity': True},
+            {'latency_offset_ns': latency_offset_ns}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
         output='screen',
@@ -108,7 +112,8 @@ def generate_launch_description():
             {'minimum_range': 0.3},
             {'publish_snr': False},
             {'publish_noise': False},
-            {'publish_velocity': True}
+            {'publish_velocity': True},
+            {'latency_offset_ns': latency_offset_ns}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
         output='screen',
@@ -132,7 +137,8 @@ def generate_launch_description():
             {'minimum_range': 0.3},
             {'publish_snr': False},
             {'publish_noise': False},
-            {'publish_velocity': True}
+            {'publish_velocity': True},
+            {'latency_offset_ns': latency_offset_ns}
             
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
@@ -157,7 +163,8 @@ def generate_launch_description():
             {'minimum_range': 0.3},
             {'publish_snr': False},
             {'publish_noise': False},
-            {'publish_velocity': True}
+            {'publish_velocity': True},
+            {'latency_offset_ns': latency_offset_ns}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
         output='screen',
@@ -181,7 +188,8 @@ def generate_launch_description():
             {'minimum_range': 0.3},
             {'publish_snr': False},
             {'publish_noise': False},
-            {'publish_velocity': True}
+            {'publish_velocity': True},
+            {'latency_offset_ns': latency_offset_ns}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
         output='screen',
@@ -205,7 +213,8 @@ def generate_launch_description():
             {'minimum_range': 0.3},
             {'publish_snr': False},
             {'publish_noise': False},
-            {'publish_velocity': True}
+            {'publish_velocity': True},
+            {'latency_offset_ns': latency_offset_ns}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
         output='screen',
