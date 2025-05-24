@@ -59,12 +59,30 @@ class LidarToMmwave : public rclcpp::Node
 		std::string _output_topic;
 		std::string _frame_id;
 
+		rclcpp::Time last_pub_{0, 0, RCL_ROS_TIME};
+    	const rclcpp::Duration min_period_{rclcpp::Duration::from_seconds(0.1)};  // 10 Hz
+
 };
 
 
 
 // converts lidar data to pointcloud of detected objects to simulate sparse mmwave
 void LidarToMmwave::lidar_to_mmwave_pcl(const sensor_msgs::msg::LaserScan::SharedPtr _msg){
+
+
+	rclcpp::Time now = this->get_clock()->now();
+
+	// if (now - last_pub_ < min_period_) { // only update transforms at 1/min_period_ Hz
+	// 	return;
+	// }
+	// last_pub_ = now;
+
+	auto pcl2_msg = sensor_msgs::msg::PointCloud2();
+	pcl2_msg.header = std_msgs::msg::Header();
+
+	rclcpp::Duration offset(0, 10 * 1000 * 1000); // artificial 10 ms delay in timestamp (sec = 0, nanosec = 10 000 000)
+
+	pcl2_msg.header.stamp = now - offset;
 
 	// RCLCPP_INFO(this->get_logger(),  "Got laser scan");
 
@@ -159,9 +177,7 @@ void LidarToMmwave::lidar_to_mmwave_pcl(const sensor_msgs::msg::LaserScan::Share
 
 	// create PointCloud2 msg
 	//https://github.com/ros-drivers/velodyne/blob/master/velodyne_laserscan/tests/system.cpp
-	auto pcl2_msg = sensor_msgs::msg::PointCloud2();
-	pcl2_msg.header = std_msgs::msg::Header();
-	pcl2_msg.header.stamp = this->now();
+	
 	pcl2_msg.header.frame_id = _frame_id;
 	pcl2_msg.fields.resize(3);
 	pcl2_msg.fields[0].name = 'x';

@@ -207,7 +207,7 @@ private:
     geometry_msgs::msg::TransformStamped _t_vel;
 
     rclcpp::Time last_pub_{0, 0, RCL_ROS_TIME};
-    const rclcpp::Duration min_period_{rclcpp::Duration::from_seconds(0.05)};  // 20 Hz
+    const rclcpp::Duration min_period_{rclcpp::Duration::from_seconds(0.02)};  // 50 Hz
 
     quat_t const _RollYaw_PI_quat{ 0.0f, -1.0f, 0.0f, 0.0f };
     vector_t const _unit_x_vector{1.0f, 0.0f, 0.0f};

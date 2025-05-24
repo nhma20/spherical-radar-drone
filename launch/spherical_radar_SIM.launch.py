@@ -145,7 +145,8 @@ def generate_launch_description():
         parameters=[
             {'pointcloud_update_rate': 10}
          ],
-        arguments=['--ros-args', '--log-level', 'warn'],
+        arguments=['--ros-args', '--log-level', 'info'],
+        output='screen',
         emulate_tty=True
     )
 
