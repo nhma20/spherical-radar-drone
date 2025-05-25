@@ -10,7 +10,7 @@ import os
 
 def generate_launch_description():
 
-    latency_offset_ns = 120_000_000
+    latency_offset_ns = 10_000_000
 
     config = os.path.join(
         get_package_share_directory('spherical-radar-drone'),

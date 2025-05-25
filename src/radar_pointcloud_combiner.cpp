@@ -25,7 +25,7 @@
 #include <pcl/common/transforms.h>
 #include <pcl/common/angles.h>
 #include <pcl/filters/extract_indices.h>
-
+#include <pcl/kdtree/kdtree_flann.h>
 
 
 #define DEG_PER_RAD 57.2957795
@@ -179,7 +179,6 @@ class RadarPCLFilter : public rclcpp::Node
 			_combined_pcl_msg.height = 1;  // because unordered cloud
 			_combined_pcl_msg.is_dense = false; // there may be invalid points
 
-
 		}
 
 		~RadarPCLFilter() {
@@ -235,6 +234,8 @@ class RadarPCLFilter : public rclcpp::Node
 		void doppler_filter_points(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
 											std::vector<float> &velocities);
 
+		pcl::PointCloud<pcl::PointXYZ>::Ptr temporal_neighbour_filter(pcl::PointCloud<pcl::PointXYZ>::Ptr new_cloud);
+
 		pcl::PointCloud<pcl::PointXYZ>::Ptr front_cloud;
 		pcl::PointCloud<pcl::PointXYZ>::Ptr rear_cloud;
 		pcl::PointCloud<pcl::PointXYZ>::Ptr top_cloud;
@@ -243,6 +244,11 @@ class RadarPCLFilter : public rclcpp::Node
 		pcl::PointCloud<pcl::PointXYZ>::Ptr left_cloud;
 
 		pcl::PointCloud<pcl::PointXYZ>::Ptr combined_cloud;
+
+		pcl::PointCloud<pcl::PointXYZ>::Ptr last_published_;
+
+		std::deque<pcl::PointCloud<pcl::PointXYZ>::Ptr> history_clouds;
+		std::deque<pcl::KdTreeFLANN<pcl::PointXYZ>::Ptr> history_kdtrees;
 
 		geometry_msgs::msg::TransformStamped front_to_drone_tf;
 		geometry_msgs::msg::TransformStamped rear_to_drone_tf;
@@ -356,7 +362,9 @@ void RadarPCLFilter::publish_combined_pointcloud() {
 
 	pcl::transformPointCloud (*combined_cloud, *combined_cloud, world_to_drone_yaw);
 
-	RadarPCLFilter::create_pointcloud_msg(combined_cloud, &_combined_pcl_msg);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_cloud = RadarPCLFilter::temporal_neighbour_filter(combined_cloud);
+
+	RadarPCLFilter::create_pointcloud_msg(filtered_cloud, &_combined_pcl_msg);
 
 	if (_combined_pcl_msg.width < 1)
 	{
@@ -523,6 +531,122 @@ void RadarPCLFilter::add_left_radar_pointcloud(const sensor_msgs::msg::PointClou
 
 	RadarPCLFilter::doppler_filter_points(left_cloud, velocities);
 	
+}
+
+
+pcl::PointCloud<pcl::PointXYZ>::Ptr RadarPCLFilter::temporal_neighbour_filter(pcl::PointCloud<pcl::PointXYZ>::Ptr new_cloud) {
+
+	// 1) Push the new scan into history; build a KD-tree only if nonempty
+    history_clouds.push_back(new_cloud);
+    if (!new_cloud->empty())
+    {
+        auto newTree = boost::make_shared<pcl::KdTreeFLANN<pcl::PointXYZ>>();
+        newTree->setInputCloud(new_cloud);
+        history_kdtrees.push_back(newTree);
+    }
+    else
+    {
+        // Insert nullptr so that indices in history_clouds/history_kdtrees stay aligned
+        history_kdtrees.push_back(nullptr);
+    }
+
+    // 2) If we have >5 frames saved, pop the oldest
+    if (history_clouds.size() > 5)
+    {
+        history_clouds.pop_front();
+        history_kdtrees.pop_front();
+    }
+
+	// 3) Prepare a “published” PointCloud
+	auto published = boost::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
+
+	// 4) If new_cloud is nonempty, filter its points
+    std::vector<bool> kept_by_incoming;
+    if (!new_cloud->empty())
+    {
+        published->reserve(new_cloud->size());
+        kept_by_incoming.resize(new_cloud->size(), false);
+
+        for (size_t i = 0; i < new_cloud->points.size(); ++i)
+        {
+            const auto &p = new_cloud->points[i];
+            int hit_count = 0;
+
+            // Count how many of the last ≤5 non-null trees have a neighbor <1m
+            for (const auto &tree : history_kdtrees)
+            {
+                if (!tree)
+                    continue;
+
+                std::vector<int>   idxs;
+                std::vector<float> sq_dists;
+                if (tree->radiusSearch(p, /*radius=*/1.0f, idxs, sq_dists) > 0)
+                {
+                    hit_count++;
+                    if (hit_count >= 3)
+                    {
+                        published->push_back(p);
+                        kept_by_incoming[i] = true;
+                        break;
+                    }
+                }
+            }
+            // If hit_count < 3, p remains “passive” for now
+        }
+    }
+
+    // 5) Re-introduction: for any point q in last_published_ that wasn't covered by incoming,
+    //    check if it still appears in ≥3 of the last ≤5 non-null scans; if so, re-add it.
+    if (last_published_ && !last_published_->empty())
+    {
+        for (const auto &q : last_published_->points)
+        {
+            // Skip if q is already within 1m of any point we just kept from new_cloud
+            bool already_covered = false;
+            for (const auto &kept_pt : published->points)
+            {
+                float dx = q.x - kept_pt.x;
+                float dy = q.y - kept_pt.y;
+                float dz = q.z - kept_pt.z;
+                if ((dx*dx + dy*dy + dz*dz) <= (1.0f * 1.0f))
+                {
+                    already_covered = true;
+                    break;
+                }
+            }
+            if (already_covered)
+                continue;
+
+            // Check q against the last ≤5 scans in history_kdtrees
+            int hit_count_q = 0;
+            for (const auto &tree : history_kdtrees)
+            {
+                if (!tree)
+                    continue;
+
+                std::vector<int>   idxs_q;
+                std::vector<float> sq_dists_q;
+                if (tree->radiusSearch(q, /*radius=*/1.0f, idxs_q, sq_dists_q) > 0)
+                {
+                    hit_count_q++;
+                    if (hit_count_q >= 3)
+                    {
+                        published->push_back(q);
+                        break;
+                    }
+                }
+            }
+            // If hit_count_q < 3, q is dropped.
+        }
+    }
+
+    // 6) Update last_published_ and return
+    last_published_ = published;
+
+	// RCLCPP_INFO(this->get_logger(), "Size %d", last_published_->size());
+
+	return published;
+
 }
 
 
