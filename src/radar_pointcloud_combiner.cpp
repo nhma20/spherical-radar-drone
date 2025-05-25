@@ -561,11 +561,9 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr RadarPCLFilter::temporal_neighbour_filter(pc
 	auto published = boost::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
 
 	// 4) If new_cloud is nonempty, filter its points
-    std::vector<bool> kept_by_incoming;
     if (!new_cloud->empty())
     {
         published->reserve(new_cloud->size());
-        kept_by_incoming.resize(new_cloud->size(), false);
 
         for (size_t i = 0; i < new_cloud->points.size(); ++i)
         {
@@ -586,7 +584,6 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr RadarPCLFilter::temporal_neighbour_filter(pc
                     if (hit_count >= 3)
                     {
                         published->push_back(p);
-                        kept_by_incoming[i] = true;
                         break;
                     }
                 }
