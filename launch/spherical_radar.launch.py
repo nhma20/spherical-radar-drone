@@ -232,7 +232,10 @@ def generate_launch_description():
         package="spherical-radar-drone",
         executable="radar_pointcloud_combiner",
         parameters=[
-            {'pointcloud_update_rate': 10}
+            {'pointcloud_update_rate': 10},
+            {'_enable_temporal_filter': False},
+            # {'temporal_filter_horizon': 5},
+            # {'temporal_filter_radius': 1.0}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
         respawn=True,

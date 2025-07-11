@@ -34,6 +34,12 @@ class LidarToMmwave : public rclcpp::Node
 			this->declare_parameter<std::string>("frame_id", "iwr6843_frame");
 			this->get_parameter("frame_id", _frame_id);
 
+			this->declare_parameter<float>("min_dist", 0.3);
+			this->get_parameter("min_dist", _min_dist);
+
+			this->declare_parameter<float>("max_dist", 15.0);
+			this->get_parameter("max_dist", _max_dist);
+
 			lidar_to_mmwave_pcl_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(_output_topic, 10);
 
 			subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
@@ -58,6 +64,8 @@ class LidarToMmwave : public rclcpp::Node
 		std::string _input_topic;
 		std::string _output_topic;
 		std::string _frame_id;
+		float _min_dist;
+		float _max_dist;
 
 		rclcpp::Time last_pub_{0, 0, RCL_ROS_TIME};
     	const rclcpp::Duration min_period_{rclcpp::Duration::from_seconds(0.1)};  // 10 Hz
@@ -128,9 +136,10 @@ void LidarToMmwave::lidar_to_mmwave_pcl(const sensor_msgs::msg::LaserScan::Share
 			}
 			else{
 				// add random dropout of points (~95% detection rate)
-				if ( ((rand() % 100) + 1) < 95){
+				float dist = group_dist/(grouped_previous+1);
+				if ( ((rand() % 100) + 1) < 95 && dist > _min_dist && dist < _max_dist){
 					//std::cout << "End of object detected, pushing" << std::endl;
-					object_center_dists.push_back( group_dist/(grouped_previous+1) );
+					object_center_dists.push_back( dist );
 					object_center_angls.push_back( group_angl/(grouped_previous+1) );
 				}
 				grouped_previous = 0;
