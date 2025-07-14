@@ -96,7 +96,7 @@ private:
         position = R_NED_to_body_frame * position;
 
 
-        quat_t quat( // msg format is wxyz, so change to xyzw
+        quat_t quat( // msg format is wxyz, so change to xyzw (THIS MUST BE WRONG?)
             msg->q[3],
             msg->q[0],
             msg->q[1],
@@ -112,7 +112,7 @@ private:
         _t.transform.translation.y = position(1);
         _t.transform.translation.z = position(2);
   
-        _t.transform.rotation.x = quat(0);
+        _t.transform.rotation.x = quat(0); // <- how can this ever be x ? according to quat declaration above it must be either z or w ?
         _t.transform.rotation.y = quat(1);
         _t.transform.rotation.z = quat(2);
         _t.transform.rotation.w = quat(3);

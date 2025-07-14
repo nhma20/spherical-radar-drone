@@ -36,6 +36,7 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(toggle_radar_msgs REQUIRED)
 
 find_package(ament_index_cpp REQUIRED)
 
@@ -106,8 +107,24 @@ src/lidar_to_mmwave.cpp
   ament_target_dependencies(lidar_to_mmwave_node
   rclcpp sensor_msgs
   geometry_msgs
+  toggle_radar_msgs
 )
 install(TARGETS lidar_to_mmwave_node DESTINATION lib/${PROJECT_NAME})
+
+
+add_executable(radar_toggler
+src/radar_toggler.cpp
+)
+  ament_target_dependencies(radar_toggler
+  rclcpp sensor_msgs
+  geometry_msgs
+  toggle_radar_msgs
+  tf2
+  tf2_ros
+  tf2_msgs
+  px4_msgs
+)
+install(TARGETS radar_toggler DESTINATION lib/${PROJECT_NAME})
 
 
 add_executable(look_ahead_cone_republisher

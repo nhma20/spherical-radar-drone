@@ -243,6 +243,12 @@ def generate_launch_description():
     )
 
 
+    radar_toggler = Node(
+        package="spherical-radar-drone",
+        executable="radar_toggler",
+    )
+
+
     micrortps_agent = ExecuteProcess(
         cmd=['micrortps_agent', '-d', '/dev/FTDI_USB_to_Serial'],
         output='screen'
@@ -265,5 +271,6 @@ def generate_launch_description():
         mmwave_rear,
         mmwave_front,
         radar_pointcloud_combiner,
+        radar_toggler,
         offboard_control
     ])

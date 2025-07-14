@@ -164,6 +164,11 @@ def generate_launch_description():
             cmd=['micrortps_agent', '-t', 'UDP'],
             output='screen'
         )
+    
+    radar_toggler = Node(
+        package="spherical-radar-drone",
+        executable="radar_toggler",
+    )
 
 
     # loads robot description from URDF
@@ -207,6 +212,7 @@ def generate_launch_description():
         lidar_to_mmwave_left,
         lidar_to_mmwave_top,
         lidar_to_mmwave_bot,
+        radar_toggler,
         offboard_control,
         robot_state_publisher,
         radar_pointcloud_combiner,

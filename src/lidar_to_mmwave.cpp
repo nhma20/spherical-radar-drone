@@ -2,6 +2,7 @@
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/msg/point_field.hpp>
+#include <toggle_radar_msgs/msg/toggle_radar.hpp>
 
 #include <algorithm>
 #include <cstdlib>
@@ -13,7 +14,6 @@
 #include <limits>
 #include <vector>
 #include <string>
-
 
 using namespace std::chrono_literals;
 
@@ -34,6 +34,21 @@ class LidarToMmwave : public rclcpp::Node
 			this->declare_parameter<std::string>("frame_id", "iwr6843_frame");
 			this->get_parameter("frame_id", _frame_id);
 
+			if (_frame_id == "front_frame")
+				_frame_idx = 0;
+			else if (_frame_id == "rear_frame")
+				_frame_idx = 1;
+			else if (_frame_id == "top_frame")
+				_frame_idx = 2;
+			else if (_frame_id == "bot_frame")
+				_frame_idx = 3;
+			else if (_frame_id == "right_frame")
+				_frame_idx = 4;
+			else if (_frame_id == "left_frame")
+				_frame_idx = 5;
+			else
+				RCLCPP_WARN(this->get_logger(),  "%s matches no frame to toggle", _frame_id);
+
 			this->declare_parameter<float>("min_dist", 0.3);
 			this->get_parameter("min_dist", _min_dist);
 
@@ -45,6 +60,10 @@ class LidarToMmwave : public rclcpp::Node
 			subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
 			_input_topic,	10,
 			std::bind(&LidarToMmwave::lidar_to_mmwave_pcl, this, std::placeholders::_1));
+
+			toggle_subscription_ = this->create_subscription<toggle_radar_msgs::msg::ToggleRadar>(
+			"/radar_toggle",	10,
+			std::bind(&LidarToMmwave::toggle_callback, this, std::placeholders::_1));
 		}
 
 		~LidarToMmwave() {
@@ -56,14 +75,18 @@ class LidarToMmwave : public rclcpp::Node
 		rclcpp::TimerBase::SharedPtr timer_;
 		rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_to_mmwave_pcl_publisher_;
 		rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr subscription_;
+		rclcpp::Subscription<toggle_radar_msgs::msg::ToggleRadar>::SharedPtr toggle_subscription_;
 
 		std::vector<float> objects_dist;
 		std::vector<float> objects_angl;
 		void lidar_to_mmwave_pcl(const sensor_msgs::msg::LaserScan::SharedPtr _msg);
+		void toggle_callback(const toggle_radar_msgs::msg::ToggleRadar::SharedPtr _msg);
 
 		std::string _input_topic;
 		std::string _output_topic;
 		std::string _frame_id;
+		int _frame_idx;
+		bool _enable_data = false;
 		float _min_dist;
 		float _max_dist;
 
@@ -73,10 +96,23 @@ class LidarToMmwave : public rclcpp::Node
 };
 
 
+void LidarToMmwave::toggle_callback(const toggle_radar_msgs::msg::ToggleRadar::SharedPtr _msg){
+
+	if(  _msg->radar_toggle_array[_frame_idx] == true )
+		_enable_data = true;
+
+	if( _msg->radar_toggle_array[_frame_idx] == false )
+		_enable_data = false;
+
+}
+
+
 
 // converts lidar data to pointcloud of detected objects to simulate sparse mmwave
 void LidarToMmwave::lidar_to_mmwave_pcl(const sensor_msgs::msg::LaserScan::SharedPtr _msg){
 
+	if( _enable_data == false )
+		return;
 
 	rclcpp::Time now = this->get_clock()->now();
 
