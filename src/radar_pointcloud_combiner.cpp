@@ -53,13 +53,17 @@ class RadarPCLFilter : public rclcpp::Node
 			this->declare_parameter<int>("temporal_filter_horizon", 5); // number of items in temporal filter queue
 			this->get_parameter("temporal_filter_horizon", _temporal_filter_horizon);
 
-			this->declare_parameter<bool>("enable_temporal_filter", true);
+			this->declare_parameter<bool>("enable_temporal_filter", false);
 			this->get_parameter("enable_temporal_filter", _enable_temporal_filter);
 
 			this->declare_parameter<float>("temporal_filter_radius", 1.0); // search radius in temporal neighbour filter
 			this->get_parameter("temporal_filter_radius", _temporal_filter_radius);
 	
+			this->declare_parameter<bool>("enable_concatenation", true);
+			this->get_parameter("enable_concatenation", _enable_concatenation);	
 			
+			this->declare_parameter<int>("concatenate_capacity", 5);
+			this->get_parameter("concatenate_capacity", capacity_);
 
 
 			front_pcl_subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -135,10 +139,6 @@ class RadarPCLFilter : public rclcpp::Node
 				} catch (const tf2::TransformException & ex) {
 
 					RCLCPP_WARN(this->get_logger(), "Could not transform: %s", ex.what());
-
-				// } catch(tf2::TransformException & ex) {
-
-				// 	RCLCPP_INFO(this->get_logger(), "Could not get all transforms, trying again...");
 					
 					_t_tries++;
 
@@ -250,6 +250,7 @@ class RadarPCLFilter : public rclcpp::Node
 											std::vector<float> &velocities);
 
 		pcl::PointCloud<pcl::PointXYZ>::Ptr temporal_neighbour_filter(pcl::PointCloud<pcl::PointXYZ>::Ptr new_cloud);
+		pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_concatenation(pcl::PointCloud<pcl::PointXYZ>::Ptr new_cloud);
 
 		pcl::PointCloud<pcl::PointXYZ>::Ptr front_cloud;
 		pcl::PointCloud<pcl::PointXYZ>::Ptr rear_cloud;
@@ -279,6 +280,8 @@ class RadarPCLFilter : public rclcpp::Node
 		int _temporal_filter_horizon; // number of items in temporal filter queue
 		bool _enable_temporal_filter;
 		float _temporal_filter_radius;
+		bool _enable_concatenation;
+		int capacity_ = 1; // Maximum number of clouds to concatenate
 
 		int top_cnt = 0;
 		int bot_cnt = 0;
@@ -298,6 +301,8 @@ class RadarPCLFilter : public rclcpp::Node
 		sensor_msgs::msg::PointCloud2 _combined_pcl_msg; 
 
 		pose_t _drone_pose_yaw_only; // in world coordinates North-West-Up
+
+		std::deque<pcl::PointCloud<pcl::PointXYZ>::Ptr> buffer_; // FIFO buffer for concatenation
 };
 
 
@@ -372,13 +377,18 @@ void RadarPCLFilter::publish_combined_pointcloud() {
 	this->left_cloud->clear();
 	// RCLCPP_INFO(this->get_logger(), "Size %d", left_cloud->size());
 
-	pcl::PointCloud<pcl::PointXYZ>::Ptr world_cloud(new pcl::PointCloud<pcl::PointXYZ>());
-	*world_cloud = *combined_cloud;	
+	pcl::PointCloud<pcl::PointXYZ>::Ptr world_cloud(new pcl::PointCloud<pcl::PointXYZ>(*combined_cloud));
 
 	if (_enable_temporal_filter)
 	{
 		*world_cloud = *RadarPCLFilter::temporal_neighbour_filter(world_cloud);
 	}
+
+	if (_enable_concatenation)
+	{
+		*world_cloud = *RadarPCLFilter::cloud_concatenation(world_cloud);
+	}
+	
 
 	geometry_msgs::msg::TransformStamped world_to_drone_yaw_tf = tf_buffer_->lookupTransform("drone_yaw_only", "world", tf2::TimePointZero);
 
@@ -396,6 +406,27 @@ void RadarPCLFilter::publish_combined_pointcloud() {
 	combined_pointcloud_pub->publish(_combined_pcl_msg); 
 }
 
+
+pcl::PointCloud<pcl::PointXYZ>::Ptr RadarPCLFilter::cloud_concatenation(pcl::PointCloud<pcl::PointXYZ>::Ptr new_cloud) {
+	
+	// Push a deep copy of the new cloud
+    pcl::PointCloud<pcl::PointXYZ>::Ptr copied_cloud(new pcl::PointCloud<pcl::PointXYZ>(*new_cloud));
+	buffer_.push_back(copied_cloud);
+
+	// Remove oldest from buffer if over capacity
+	if (buffer_.size() > (std::size_t)capacity_) {
+		buffer_.pop_front();
+	}
+
+	// Concatenate all clouds in the buffer
+	pcl::PointCloud<pcl::PointXYZ>::Ptr output(new pcl::PointCloud<pcl::PointXYZ>());
+
+	for (const auto& cloud : buffer_) {
+		*output += *cloud;
+	}
+
+	return output;
+}
 
 
 void RadarPCLFilter::add_front_radar_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
@@ -548,191 +579,6 @@ void RadarPCLFilter::add_left_radar_pointcloud(const sensor_msgs::msg::PointClou
 	
 }
 
-
-// pcl::PointCloud<pcl::PointXYZ>::Ptr RadarPCLFilter::temporal_neighbour_filter(pcl::PointCloud<pcl::PointXYZ>::Ptr new_cloud) {
-
-// 	// 1) Push the new scan into history; build a KD-tree only if nonempty
-//     history_clouds.push_back(new_cloud);
-//     if (!new_cloud->empty())
-//     {
-//         auto newTree = boost::make_shared<pcl::KdTreeFLANN<pcl::PointXYZ>>();
-//         newTree->setInputCloud(new_cloud);
-//         history_kdtrees.push_back(newTree);
-//     }
-//     else
-//     {
-//         // Insert nullptr so that indices in history_clouds/history_kdtrees stay aligned
-//         history_kdtrees.push_back(nullptr);
-//     }
-
-//     // 2) If we have >_temporal_filter_horizon frames saved, pop the oldest 
-//     if (history_clouds.size() > (size_t)_temporal_filter_horizon)
-//     {
-//         history_clouds.pop_front();
-//         history_kdtrees.pop_front();
-//     }
-
-// 	// 3) Prepare a “published” PointCloud
-// 	auto published = boost::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
-
-// 	// 4) If new_cloud is nonempty, filter its points
-// 	static int required_hits = (_temporal_filter_horizon / 2) + 1; // since intergers, this should equal floor division
-
-// 	int passive_count = 0;
-
-//     if (!new_cloud->empty())
-//     {
-//         published->reserve(new_cloud->size());
-
-//         for (size_t i = 0; i < new_cloud->points.size(); ++i)
-//         {
-//             const auto &p = new_cloud->points[i];
-//             int hit_count = 0;
-
-//             // Count how many of the last ≤_temporal_filter_horizon non-null trees have a neighbor <1m
-//             for (const auto &tree : history_kdtrees)
-//             {
-//                 if (!tree) {
-//                     continue;
-// 				}				
-
-//                 std::vector<int>   idxs;
-//                 std::vector<float> sq_dists;
-//                 if (tree->radiusSearch(p, /*radius=*/1.0f, idxs, sq_dists) > 0)
-//                 {
-//                     hit_count++;
-//                     if (hit_count >= required_hits)
-//                     {
-//                         published->push_back(p); 
-//                         break;
-//                     }
-//                 }
-//             }
-			
-// 			if (hit_count < required_hits)
-// 			{
-// 				passive_count++;
-// 			}			
-//             // If hit_count < required_hits, p remains “passive” for now
-//         }
-//     }
-
-//     // 5) Re-introduction: for any point q in last_published_ that wasn't covered by incoming,
-//     //    check if it still appears in ≥required_hits of the last ≤_temporal_filter_horizon non-null scans; if so, re-add it.
-
-// 	int not_covered_count = 0;
-
-// 	if (last_published_ && !last_published_->empty())
-// 	{
-
-// 		rclcpp::Time now = this->get_clock()->now();	
-// 		auto pcl2_msg = sensor_msgs::msg::PointCloud2();
-// 		pcl2_msg.header = std_msgs::msg::Header();
-// 		pcl2_msg.header.frame_id = "world";
-// 		pcl2_msg.fields.resize(3);
-// 		pcl2_msg.fields[0].name = 'x';
-// 		pcl2_msg.fields[0].offset = 0;
-// 		pcl2_msg.fields[0].datatype = sensor_msgs::msg::PointField::FLOAT32;
-// 		pcl2_msg.fields[0].count = 1;
-// 		pcl2_msg.fields[1].name = 'y';
-// 		pcl2_msg.fields[1].offset = 4;
-// 		pcl2_msg.fields[1].datatype = sensor_msgs::msg::PointField::FLOAT32;
-// 		pcl2_msg.fields[1].count = 1;
-// 		pcl2_msg.fields[2].name = 'z';
-// 		pcl2_msg.fields[2].offset = 8;
-// 		pcl2_msg.fields[2].datatype = sensor_msgs::msg::PointField::FLOAT32;
-// 		pcl2_msg.fields[2].count = 1;
-// 		const uint32_t POINT_STEP = 12;
-// 		pcl2_msg.data.resize(std::max((size_t)1, last_published_->size()) * POINT_STEP, 0x00);
-// 		pcl2_msg.point_step = POINT_STEP; // size (bytes) of 1 point (float32 * dimensions (3 when xyz))
-// 		pcl2_msg.row_step = pcl2_msg.data.size();//pcl2_msg.point_step * pcl2_msg.width; // only 1 row because unordered
-// 		pcl2_msg.height = 1;  // because unordered cloud
-// 		pcl2_msg.width = pcl2_msg.row_step / POINT_STEP; // number of points in cloud
-// 		pcl2_msg.is_dense = false; // there may be invalid points
-	
-// 		// fill PointCloud2 msg data
-// 		uint8_t *ptr = pcl2_msg.data.data();
-// 		for (size_t i = 0; i < last_published_->size(); i++)
-// 		{
-// 			*(reinterpret_cast<float*>(ptr + 0)) = last_published_->at(i).x;
-// 			*(reinterpret_cast<float*>(ptr + 4)) = last_published_->at(i).y;
-// 			*(reinterpret_cast<float*>(ptr + 8)) = last_published_->at(i).z;
-// 			ptr += POINT_STEP;
-// 		}
-		
-
-// 		test_pointcloud_pub->publish(pcl2_msg);
-// 	}
-
-// 	// Build a temporary KD‐tree on `published` points (if nonempty)
-// 	pcl::KdTreeFLANN<pcl::PointXYZ> published_tree;
-// 	if (!published->empty())
-// 	{
-// 		published_tree.setInputCloud(published);
-// 	}
-
-// 	if (last_published_ && !last_published_->empty())
-// 	{
-// 		int cnter = 0;
-
-// 		for (size_t k = 0; k < last_published_->size(); k++) //(const auto &q : last_published_->points)
-// 		{
-// 			const auto &q = last_published_->points[k];
-			
-// 			// 1) Query the KD‐tree on `published` to see if any kept point lies within 1 m of q
-// 			bool already_covered = false;
-// 			if (!published->empty())
-// 			{
-// 				std::vector<int>   idxs_cover;
-// 				std::vector<float> dists_cover;
-// 				int num_neighbours = published_tree.radiusSearch(q, /*radius=*/10.0f, idxs_cover, dists_cover);		
-
-// 				if (num_neighbours > 0)
-// 				{
-// 					already_covered = true;
-// 				}
-// 				else {
-// 					not_covered_count++;
-// 				}
-
-// 			}
-// 			if (already_covered) {
-// 				RCLCPP_INFO(this->get_logger(), "CONTINUE 1");
-// 				continue;
-// 			}
-
-// 			// 2) If q isn’t covered by `published`, do the “3‐of‐5” check on history_kdtrees:
-// 			int hit_count_q = 0;
-
-// 			for (const auto &tree : history_kdtrees)
-// 			{
-// 				if (!tree) {
-// 					continue;  // skip any nullptr
-// 				}
-				
-// 				std::vector<int>   idxs_q;
-// 				std::vector<float> sq_dists_q;
-// 				if (tree->radiusSearch(q, /*radius=*/1.0f, idxs_q, sq_dists_q) > 0)
-// 				{
-// 					hit_count_q++;
-// 					if (hit_count_q >= required_hits)
-// 					{
-// 						published->push_back(q);
-// 						break;
-// 					}
-// 				}
-// 			}
-// 			// If hit_count_q < required_hits, drop q.
-// 		}
-// 		cnter = 0;
-// 	}
-
-//     // 6) Update last_published_ and return
-//     last_published_ = published;
-
-// 	return published;
-
-// }
 
 pcl::PointCloud<pcl::PointXYZ>::Ptr RadarPCLFilter::temporal_neighbour_filter(pcl::PointCloud<pcl::PointXYZ>::Ptr new_cloud) {
 
