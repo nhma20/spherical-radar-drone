@@ -170,6 +170,11 @@ def generate_launch_description():
         executable="radar_toggler",
     )
 
+    radar_zone_visualizer = Node(
+        package="spherical-radar-drone",
+        executable="radar_zone_visualizer",
+    )
+
 
     # loads robot description from URDF
     use_sim_time = LaunchConfiguration('use_sime_time', default='false')
@@ -213,6 +218,7 @@ def generate_launch_description():
         lidar_to_mmwave_top,
         lidar_to_mmwave_bot,
         radar_toggler,
+        radar_zone_visualizer,
         offboard_control,
         robot_state_publisher,
         radar_pointcloud_combiner,

@@ -127,6 +127,18 @@ src/radar_toggler.cpp
 install(TARGETS radar_toggler DESTINATION lib/${PROJECT_NAME})
 
 
+add_executable(radar_zone_visualizer
+src/radar_zone_visualizer.cpp
+)
+  ament_target_dependencies(radar_zone_visualizer
+  rclcpp
+  ament_index_cpp
+  toggle_radar_msgs
+  visualization_msgs
+)
+install(TARGETS radar_zone_visualizer DESTINATION lib/${PROJECT_NAME})
+
+
 add_executable(look_ahead_cone_republisher
   src/look_ahead_cone_republisher.cpp
 )
