@@ -173,6 +173,9 @@ def generate_launch_description():
     radar_zone_visualizer = Node(
         package="spherical-radar-drone",
         executable="radar_zone_visualizer",
+        parameters=[
+            {'zone_scale': 0.0075},
+         ],
     )
 
 
@@ -220,7 +223,7 @@ def generate_launch_description():
         radar_toggler,
         radar_zone_visualizer,
         offboard_control,
-        robot_state_publisher,
+        # robot_state_publisher,
         radar_pointcloud_combiner,
         look_ahead_cone_republisher,
         rviz_node

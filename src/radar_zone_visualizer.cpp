@@ -53,6 +53,12 @@ class RadarPCLFilter : public rclcpp::Node
 	public:
 		RadarPCLFilter() : Node("radar_zone_visualizer_node") {
 
+			this->declare_parameter<float>("zone_scale", 0.01); // Hz
+			this->get_parameter("zone_scale", _zone_scale);
+
+			this->declare_parameter<float>("zone_alpha", 0.15); // Hz
+			this->get_parameter("zone_alpha", _zone_alpha);
+
 			_zone_subscription_ = this->create_subscription<toggle_radar_msgs::msg::ToggleRadar>(
 			"/radar_toggle", 10,
 			std::bind(&RadarPCLFilter::zone_marker, this, std::placeholders::_1));
@@ -65,23 +71,15 @@ class RadarPCLFilter : public rclcpp::Node
 			_zone_front.header = std_msgs::msg::Header();
 			_zone_front.header.frame_id = "drone";
 			_zone_front.action = visualization_msgs::msg::Marker::ADD;
-			_zone_front.color.r = 0.9f;
-			_zone_front.color.g = 0.9f;
-			_zone_front.color.b = 0.9f;
+			_zone_front.color.r = 0.99f;
+			_zone_front.color.g = 0.99f;
+			_zone_front.color.b = 0.0f;
 			_zone_front.color.a = 0.0f;
 			_zone_front.type = visualization_msgs::msg::Marker::MESH_RESOURCE;
 			_zone_front.lifetime = rclcpp::Duration::from_seconds(0);
-			// _zone_front.pose.orientation.x = drone_arrow_rotation(0);
-			// _zone_front.pose.orientation.y = drone_arrow_rotation(1);
-			// _zone_front.pose.orientation.z = drone_arrow_rotation(2);
-			// _zone_front.pose.orientation.w = drone_arrow_rotation(3);
-			// _zone_front.pose.position.x = _drone_pose.position(0); //0; 
-			// _zone_front.pose.position.y = _drone_pose.position(1); //0;
-			// _zone_front.pose.position.z = _drone_pose.position(2); //0; 
-			// Set the scale of the marker -- 1x1x1 here means 1m on a side
-			_zone_front.scale.x = 0.0045;
-			_zone_front.scale.y = 0.0045;
-			_zone_front.scale.z = 0.0045;
+			_zone_front.scale.x = _zone_scale;
+			_zone_front.scale.y = _zone_scale;
+			_zone_front.scale.z = _zone_scale;
 			std::string mesh_path;
 
 			_zone_rear = _zone_front;
@@ -141,6 +139,8 @@ class RadarPCLFilter : public rclcpp::Node
 		visualization_msgs::msg::Marker _zone_bot;
 		visualization_msgs::msg::Marker _zone_right;
 		visualization_msgs::msg::Marker _zone_left;
+		float _zone_scale;
+		float _zone_alpha = 0.15;
 
 };
 
@@ -158,12 +158,12 @@ void RadarPCLFilter::zone_marker(const std::shared_ptr<toggle_radar_msgs::msg::T
 	_zone_right.header.stamp =_zone_front.header.stamp;
 	_zone_left.header.stamp = _zone_front.header.stamp;
 
-	_zone_front.color.a = msg->radar_toggle_array[0]*0.25f; 
-	_zone_rear.color.a = msg->radar_toggle_array[1]*0.25f; 
-	_zone_top.color.a = msg->radar_toggle_array[2]*0.25f; 
-	_zone_bot.color.a = msg->radar_toggle_array[3]*0.25f; 
-	_zone_right.color.a = msg->radar_toggle_array[4]*0.25f; 
-	_zone_left.color.a = msg->radar_toggle_array[5]*0.25f; 
+	_zone_front.color.a = msg->radar_toggle_array[0]*_zone_alpha; 
+	_zone_rear.color.a = msg->radar_toggle_array[1]*_zone_alpha; 
+	_zone_top.color.a = msg->radar_toggle_array[2]*_zone_alpha; 
+	_zone_bot.color.a = msg->radar_toggle_array[3]*_zone_alpha; 
+	_zone_right.color.a = msg->radar_toggle_array[4]*_zone_alpha; 
+	_zone_left.color.a = msg->radar_toggle_array[5]*_zone_alpha; 
 
 
 	// if (msg->radar_toggle_array[0] == true)
