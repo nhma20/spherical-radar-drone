@@ -813,13 +813,14 @@ vector_t OffboardControl::speed_limiter() {
 	float timidness = _safety_rejection_scalar;
 	safety_rejection_vector_sum = safety_rejection_vector_sum  * timidness; // * input_velocity_vector_scalar;
 
-	// RCLCPP_INFO(this->get_logger(),  "Safety rejection strength %f", safety_rejection_vector_sum.stableNorm());
+	// RCLCPP_WARN(this->get_logger(),  "Safety rejection");
 	// RCLCPP_INFO(this->get_logger(),  "X: %f", safety_rejection_vector_sum(0));
 	// RCLCPP_INFO(this->get_logger(),  "Y: %f", safety_rejection_vector_sum(1));
 	// RCLCPP_INFO(this->get_logger(),  "Z: %f", safety_rejection_vector_sum(2));
 
 	if (safety_rejection_vector_sum.norm() > 0.01)
 	{
+		RCLCPP_WARN(this->get_logger(),  "Safety rejection");
 		_out_vel_vector = safety_rejection_vector_sum; // to visualize output vector
 		return (safety_rejection_vector_sum);
 	}
@@ -1205,6 +1206,14 @@ vector_t OffboardControl::speed_limiter() {
 		vector_t limited_out_vel = rejection_sum * (_caution_sphere_max_speed / rejection_sum_l2norm);
 		vector_t reduced_overspeed = ( rejection_sum - limited_out_vel ) * reject_ratio_min;
 		rejection_sum = limited_out_vel + reduced_overspeed;
+	}
+
+
+	// Limit magnitude of rejection_sum to input_velocity_vector_scalar
+	rejection_sum_l2norm = rejection_sum.stableNorm();
+	if (rejection_sum_l2norm > input_velocity_vector_scalar)
+	{
+		rejection_sum = rejection_sum.normalized() * input_velocity_vector_scalar;
 	}
 
 	_out_vel_vector = rejection_sum;

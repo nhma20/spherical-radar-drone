@@ -224,7 +224,7 @@ void RadarToggler::odometryCallback(const std::shared_ptr<px4_msgs::msg::Vehicle
 
 	toggle_publisher_->publish(toggle_msg);
 
-	RCLCPP_WARN(this->get_logger(), "Current: %d %d %d %d %d %d ", _toggle_array[0],_toggle_array[1],_toggle_array[2],_toggle_array[3],_toggle_array[4],_toggle_array[5]);
+	// RCLCPP_WARN(this->get_logger(), "Current: %d %d %d %d %d %d ", _toggle_array[0],_toggle_array[1],_toggle_array[2],_toggle_array[3],_toggle_array[4],_toggle_array[5]);
 
 }
 
