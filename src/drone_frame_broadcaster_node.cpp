@@ -78,10 +78,10 @@ private:
 
         rclcpp::Time now = this->get_clock()->now();
 
-        if (now - last_pub_ < min_period_) { // only update transforms at 1/min_period_ Hz
-            return;
-        }
-        last_pub_ = now;
+        // if (now - last_pub_ < min_period_) { // only update transforms at 1/min_period_ Hz
+        //     return;
+        // }
+        // last_pub_ = now;
         
         // corresponding tf variables
         _t.header.stamp = now;
