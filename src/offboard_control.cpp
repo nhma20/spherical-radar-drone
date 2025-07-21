@@ -820,6 +820,7 @@ vector_t OffboardControl::speed_limiter() {
 
 	if (safety_rejection_vector_sum.norm() > 0.01)
 	{
+		_out_vel_vector = safety_rejection_vector_sum; // to visualize output vector
 		return (safety_rejection_vector_sum);
 	}
 
