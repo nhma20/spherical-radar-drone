@@ -799,7 +799,7 @@ vector_t OffboardControl::speed_limiter() {
 		vector_t obst_vect(
 			_combined_points->points[points_idx_in_safety_sphere.at(i)].x, 
 			_combined_points->points[points_idx_in_safety_sphere.at(i)].y,
-			-_combined_points->points[points_idx_in_safety_sphere.at(i)].z
+			_combined_points->points[points_idx_in_safety_sphere.at(i)].z
 		);
 
 		float factor = 1 - (_safety_sphere_radius / obst_vect.norm());
@@ -807,7 +807,7 @@ vector_t OffboardControl::speed_limiter() {
 
 		obst_vect.normalize();
 
-		safety_rejection_vector_sum += -obst_vect * factor;
+		safety_rejection_vector_sum += obst_vect * factor;
 	}
 
 	float timidness = _safety_rejection_scalar;
@@ -821,6 +821,7 @@ vector_t OffboardControl::speed_limiter() {
 	if (safety_rejection_vector_sum.norm() > 0.01)
 	{
 		RCLCPP_WARN(this->get_logger(),  "Safety rejection");
+		_obst_tangent_vector.setZero(); // to hide in vis
 		_out_vel_vector = safety_rejection_vector_sum; // to visualize output vector
 		return (safety_rejection_vector_sum);
 	}
