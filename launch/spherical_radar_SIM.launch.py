@@ -220,7 +220,7 @@ def generate_launch_description():
         lidar_to_mmwave_left,
         lidar_to_mmwave_top,
         lidar_to_mmwave_bot,
-        radar_toggler,
+        # radar_toggler,
         radar_zone_visualizer,
         offboard_control,
         # robot_state_publisher,

@@ -11,6 +11,8 @@ import os
 def generate_launch_description():
 
     latency_offset_ns = 10_000_000
+    cfg_path_ISK = '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr68xx_profile_25Hz_Elev_43m.cfg' #xwr6843ISK_profile_10Hz_v2
+    cfg_path_AOP = '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr68xx_profile_25Hz_Elev_43m.cfg' #xwr6843AOP_profile_10Hz_v2
 
     config = os.path.join(
         get_package_share_directory('spherical-radar-drone'),
@@ -78,7 +80,7 @@ def generate_launch_description():
                 ('/xwr6843_pcl', '/front_pcl'),
             ],
         parameters=[
-            {'cfg_path': '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843ISK_profile_10Hz_v2.cfg'},
+            {'cfg_path': cfg_path_ISK},
             {'cli_port': '/dev/radar_front_CLI'},
             {'data_port': '/dev/radar_front_DATA'},
             {'frame_id': 'front_frame'},
@@ -103,7 +105,7 @@ def generate_launch_description():
                 ('/xwr6843_pcl', '/rear_pcl'),
             ],
         parameters=[
-            {'cfg_path': '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz_v2.cfg'},
+            {'cfg_path': cfg_path_AOP},
             {'cli_port': '/dev/radar_rear_CLI'},
             {'data_port': '/dev/radar_rear_DATA'},
             {'frame_id': 'rear_frame'},
@@ -128,7 +130,7 @@ def generate_launch_description():
                 ('/xwr6843_pcl', '/top_pcl'),
             ],
         parameters=[
-            {'cfg_path': '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz_v2.cfg'},
+            {'cfg_path': cfg_path_AOP},
             {'cli_port': '/dev/radar_top_CLI'},
             {'data_port': '/dev/radar_top_DATA'},
             {'frame_id': 'top_frame'},
@@ -154,7 +156,7 @@ def generate_launch_description():
                 ('/xwr6843_pcl', '/bot_pcl')
             ],
         parameters=[
-            {'cfg_path': '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz_v2.cfg'},
+            {'cfg_path': cfg_path_AOP},
             {'cli_port': '/dev/radar_bot_CLI'},
             {'data_port': '/dev/radar_bot_DATA'},
             {'frame_id': 'bot_frame'},
@@ -179,7 +181,7 @@ def generate_launch_description():
                 ('/xwr6843_pcl', '/right_pcl'),
             ],
         parameters=[
-            {'cfg_path': '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz_v2.cfg'},
+            {'cfg_path': cfg_path_AOP},
             {'cli_port': '/dev/radar_right_CLI'},
             {'data_port': '/dev/radar_right_DATA'},
             {'frame_id': 'right_frame'},
@@ -204,7 +206,7 @@ def generate_launch_description():
                 ('/xwr6843_pcl', '/left_pcl'),
             ],
         parameters=[
-            {'cfg_path': '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz_v2.cfg'},
+            {'cfg_path': cfg_path_AOP},
             {'cli_port': '/dev/radar_left_CLI'},
             {'data_port': '/dev/radar_left_DATA'},
             {'frame_id': 'left_frame'},
@@ -232,7 +234,7 @@ def generate_launch_description():
         package="spherical-radar-drone",
         executable="radar_pointcloud_combiner",
         parameters=[
-            {'pointcloud_update_rate': 10},
+            {'pointcloud_update_rate': 20}, #10
             {'_enable_temporal_filter': False},
             # {'temporal_filter_horizon': 5},
             # {'temporal_filter_radius': 1.0}
@@ -271,6 +273,6 @@ def generate_launch_description():
         mmwave_rear,
         mmwave_front,
         radar_pointcloud_combiner,
-        radar_toggler,
+        # radar_toggler,
         offboard_control
     ])

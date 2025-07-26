@@ -86,7 +86,7 @@ class LidarToMmwave : public rclcpp::Node
 		std::string _output_topic;
 		std::string _frame_id;
 		int _frame_idx;
-		bool _enable_data = false;
+		bool _enable_data = true; // on by default
 		float _min_dist;
 		float _max_dist;
 
