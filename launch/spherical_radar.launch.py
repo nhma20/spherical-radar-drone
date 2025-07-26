@@ -11,8 +11,8 @@ import os
 def generate_launch_description():
 
     latency_offset_ns = 10_000_000
-    cfg_path_ISK = '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr68xx_profile_25Hz_Elev_43m.cfg' #xwr6843ISK_profile_10Hz_v2
-    cfg_path_AOP = '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr68xx_profile_25Hz_Elev_43m.cfg' #xwr6843AOP_profile_10Hz_v2
+    cfg_path_ISK = '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843ISK_profile_10Hz_v2' #'xwr68xx_profile_25Hz_Elev_43m.cfg' #
+    cfg_path_AOP = '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz_v2' #'xwr68xx_profile_25Hz_Elev_43m.cfg' #
 
     config = os.path.join(
         get_package_share_directory('spherical-radar-drone'),
@@ -234,7 +234,7 @@ def generate_launch_description():
         package="spherical-radar-drone",
         executable="radar_pointcloud_combiner",
         parameters=[
-            {'pointcloud_update_rate': 20}, #10
+            {'pointcloud_update_rate': 10}, #10
             {'_enable_temporal_filter': False},
             # {'temporal_filter_horizon': 5},
             # {'temporal_filter_radius': 1.0}
@@ -266,11 +266,11 @@ def generate_launch_description():
         tf_drone_to_right,
         tf_drone_to_top,
         tf_drone_to_bot,
-        mmwave_bot,
-        mmwave_top,
+        # mmwave_bot,
+        # mmwave_top,
         mmwave_left,
-        mmwave_right,
-        mmwave_rear,
+        # mmwave_right,
+        # mmwave_rear,
         mmwave_front,
         radar_pointcloud_combiner,
         # radar_toggler,
