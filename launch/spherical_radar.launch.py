@@ -206,7 +206,7 @@ def generate_launch_description():
                 ('/xwr6843_pcl', '/left_pcl'),
             ],
         parameters=[
-            {'cfg_path': cfg_path_ISK}, #cfg_path_AOP
+            {'cfg_path': cfg_path_AOP}, #cfg_path_AOP
             {'cli_port': '/dev/radar_left_CLI'},
             {'data_port': '/dev/radar_left_DATA'},
             {'frame_id': 'left_frame'},
@@ -267,11 +267,11 @@ def generate_launch_description():
         tf_drone_to_right,
         tf_drone_to_top,
         tf_drone_to_bot,
-        # mmwave_bot,
-        # mmwave_top,
+        mmwave_bot,
+        mmwave_top,
         mmwave_left,
-        # mmwave_right,
-        # mmwave_rear,
+        mmwave_right,
+        mmwave_rear,
         mmwave_front,
         radar_pointcloud_combiner,
         # radar_toggler,
