@@ -199,39 +199,31 @@ def generate_launch_description():
         respawn=True
     )
 
-    # mmwave_left = Node(
-    #     package="xwr6843_ros2",
-    #     executable="pcl_pub",
-    #     remappings=[
-    #             ('/xwr6843_pcl', '/left_pcl'),
-    #         ],
-    #     parameters=[
-    #         {'cfg_path': cfg_path_AOP},
-    #         {'cli_port': '/dev/radar_left_CLI'},
-    #         {'data_port': '/dev/radar_left_DATA'},
-    #         {'frame_id': 'left_frame'},
-    #         {'radar_azimuth_fov': 140},
-    #         {'radar_elevation_fov': 140},
-    #         {'minimum_range': 0.3},
-    #         {'publish_snr': False},
-    #         {'publish_noise': False},
-    #         {'publish_velocity': True},
-    #         {'latency_offset_ns': latency_offset_ns}
-    #      ],
-    #     arguments=['--ros-args', '--log-level', 'warn'],
-    #     output='screen',
-    #     emulate_tty=True,
-    #     respawn=True
-    # )
-    mmwave_left = IncludeLaunchDescription( # hacky workaround to fix bug where left never launches
-        PythonLaunchDescriptionSource(
-            PathJoinSubstitution([
-                FindPackageShare('xwr6843_ros2'),
-                'launch',
-                'left_radar.launch.py' 
-            ])
-        ),
+    mmwave_left = Node(
+        package="xwr6843_ros2",
+        executable="pcl_pub",
+        remappings=[
+                ('/xwr6843_pcl', '/left_pcl'),
+            ],
+        parameters=[
+            {'cfg_path': cfg_path_ISK}, #cfg_path_AOP
+            {'cli_port': '/dev/radar_left_CLI'},
+            {'data_port': '/dev/radar_left_DATA'},
+            {'frame_id': 'left_frame'},
+            {'radar_azimuth_fov': 140},
+            {'radar_elevation_fov': 140},
+            {'minimum_range': 0.3},
+            {'publish_snr': False},
+            {'publish_noise': False},
+            {'publish_velocity': True},
+            {'latency_offset_ns': latency_offset_ns}
+         ],
+        arguments=['--ros-args', '--log-level', 'warn'],
+        output='screen',
+        emulate_tty=True,
+        respawn=True
     )
+
 
     offboard_control = Node(
         package="spherical-radar-drone",
