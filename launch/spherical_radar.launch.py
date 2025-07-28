@@ -13,6 +13,10 @@ def generate_launch_description():
     latency_offset_ns = 10_000_000
     cfg_path_ISK = '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843ISK_profile_10Hz_v2.cfg' #'xwr68xx_profile_25Hz_Elev_43m.cfg' #
     cfg_path_AOP = '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz_v2.cfg' #'xwr68xx_profile_25Hz_Elev_43m.cfg' #
+    AZIMUTH_AOP = 110
+    ELEVATION_AOP = 110
+    AZIMUTH_ISK = 140
+    ELEVATION_ISK = 60
 
     config = os.path.join(
         get_package_share_directory('spherical-radar-drone'),
@@ -84,8 +88,8 @@ def generate_launch_description():
             {'cli_port': '/dev/radar_front_CLI'},
             {'data_port': '/dev/radar_front_DATA'},
             {'frame_id': 'front_frame'},
-            {'radar_azimuth_fov': 140},
-            {'radar_elevation_fov': 60},
+            {'radar_azimuth_fov': AZIMUTH_ISK},
+            {'radar_elevation_fov': ELEVATION_ISK},
             {'minimum_range': 0.3},
             {'publish_snr': False},
             {'publish_noise': False},
@@ -109,8 +113,8 @@ def generate_launch_description():
             {'cli_port': '/dev/radar_rear_CLI'},
             {'data_port': '/dev/radar_rear_DATA'},
             {'frame_id': 'rear_frame'},
-            {'radar_azimuth_fov': 140},
-            {'radar_elevation_fov': 140},
+            {'radar_azimuth_fov': AZIMUTH_AOP},
+            {'radar_azimuth_fov': ELEVATION_AOP},
             {'minimum_range': 0.3},
             {'publish_snr': False},
             {'publish_noise': False},
@@ -134,8 +138,8 @@ def generate_launch_description():
             {'cli_port': '/dev/radar_top_CLI'},
             {'data_port': '/dev/radar_top_DATA'},
             {'frame_id': 'top_frame'},
-            {'radar_azimuth_fov': 140},
-            {'radar_elevation_fov': 140},
+            {'radar_azimuth_fov': AZIMUTH_AOP},
+            {'radar_azimuth_fov': ELEVATION_AOP},
             {'minimum_range': 0.3},
             {'publish_snr': False},
             {'publish_noise': False},
@@ -160,8 +164,8 @@ def generate_launch_description():
             {'cli_port': '/dev/radar_bot_CLI'},
             {'data_port': '/dev/radar_bot_DATA'},
             {'frame_id': 'bot_frame'},
-            {'radar_azimuth_fov': 140},
-            {'radar_elevation_fov': 140},
+            {'radar_azimuth_fov': AZIMUTH_AOP},
+            {'radar_azimuth_fov': ELEVATION_AOP},
             {'minimum_range': 0.3},
             {'publish_snr': False},
             {'publish_noise': False},
@@ -185,8 +189,8 @@ def generate_launch_description():
             {'cli_port': '/dev/radar_right_CLI'},
             {'data_port': '/dev/radar_right_DATA'},
             {'frame_id': 'right_frame'},
-            {'radar_azimuth_fov': 140},
-            {'radar_elevation_fov': 140},
+            {'radar_azimuth_fov': AZIMUTH_AOP},
+            {'radar_azimuth_fov': ELEVATION_AOP},
             {'minimum_range': 0.3},
             {'publish_snr': False},
             {'publish_noise': False},
@@ -210,8 +214,8 @@ def generate_launch_description():
             {'cli_port': '/dev/radar_left_CLI'},
             {'data_port': '/dev/radar_left_DATA'},
             {'frame_id': 'left_frame'},
-            {'radar_azimuth_fov': 140},
-            {'radar_elevation_fov': 140},
+            {'radar_azimuth_fov': AZIMUTH_AOP},
+            {'radar_azimuth_fov': ELEVATION_AOP},
             {'minimum_range': 0.3},
             {'publish_snr': False},
             {'publish_noise': False},
