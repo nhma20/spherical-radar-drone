@@ -13,8 +13,8 @@ def generate_launch_description():
     latency_offset_ns = 10_000_000
     cfg_path_ISK = '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843ISK_profile_10Hz_v2.cfg' #'xwr68xx_profile_25Hz_Elev_43m.cfg' #
     cfg_path_AOP = '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz_v2.cfg' #'xwr68xx_profile_25Hz_Elev_43m.cfg' #
-    AZIMUTH_AOP = 110
-    ELEVATION_AOP = 110
+    AZIMUTH_AOP = 100
+    ELEVATION_AOP = 100
     AZIMUTH_ISK = 140
     ELEVATION_ISK = 60
 
@@ -241,6 +241,7 @@ def generate_launch_description():
         parameters=[
             {'pointcloud_update_rate': 10}, #10
             {'_enable_temporal_filter': False},
+            {'concatenate_capacity': 2},
             # {'temporal_filter_horizon': 5},
             # {'temporal_filter_radius': 1.0}
          ],
