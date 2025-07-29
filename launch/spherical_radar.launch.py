@@ -241,7 +241,7 @@ def generate_launch_description():
         parameters=[
             {'pointcloud_update_rate': 10}, #10
             {'_enable_temporal_filter': False},
-            {'concatenate_capacity': 2},
+            {'concatenate_capacity': 1},
             # {'temporal_filter_horizon': 5},
             # {'temporal_filter_radius': 1.0}
          ],
