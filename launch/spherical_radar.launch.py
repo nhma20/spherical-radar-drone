@@ -13,8 +13,8 @@ def generate_launch_description():
     latency_offset_ns = 10_000_000
     cfg_path_ISK = '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843ISK_profile_10Hz_v2.cfg' #'xwr68xx_profile_25Hz_Elev_43m.cfg' #
     cfg_path_AOP = '/home/ubuntu/ros2_ws/src/xwr6843_ros2/cfg_files/xwr6843AOP_profile_10Hz_v2.cfg' #'xwr68xx_profile_25Hz_Elev_43m.cfg' #
-    AZIMUTH_AOP = 100
-    ELEVATION_AOP = 100
+    AZIMUTH_AOP = 85
+    ELEVATION_AOP = 85
     AZIMUTH_ISK = 140
     ELEVATION_ISK = 60
 
