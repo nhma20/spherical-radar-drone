@@ -100,6 +100,24 @@ ${PCL_LIBRARIES}
 )
 install(TARGETS radar_pointcloud_combiner DESTINATION lib/${PROJECT_NAME})
 
+add_executable(pcl_angle
+src/pcl_angle.cpp
+src/geometry.cpp
+)
+target_link_libraries (pcl_angle
+${PCL_LIBRARIES}
+)
+  ament_target_dependencies(pcl_angle
+  rclcpp
+  sensor_msgs
+  px4_msgs
+  tf2
+  tf2_ros
+  tf2_msgs
+  PCL
+)
+install(TARGETS pcl_angle DESTINATION lib/${PROJECT_NAME})
+
 
 add_executable(lidar_to_mmwave_node
 src/lidar_to_mmwave.cpp
