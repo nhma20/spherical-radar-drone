@@ -93,7 +93,7 @@ def generate_launch_description():
             {'minimum_range': 0.3},
             {'publish_snr': False},
             {'publish_noise': False},
-            {'publish_velocity': True},
+            {'publish_velocity': False},
             {'latency_offset_ns': latency_offset_ns}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
@@ -118,7 +118,7 @@ def generate_launch_description():
             {'minimum_range': 0.3},
             {'publish_snr': False},
             {'publish_noise': False},
-            {'publish_velocity': True},
+            {'publish_velocity': False},
             {'latency_offset_ns': latency_offset_ns}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
@@ -143,7 +143,7 @@ def generate_launch_description():
             {'minimum_range': 0.3},
             {'publish_snr': False},
             {'publish_noise': False},
-            {'publish_velocity': True},
+            {'publish_velocity': False},
             {'latency_offset_ns': latency_offset_ns}
             
          ],
@@ -169,7 +169,7 @@ def generate_launch_description():
             {'minimum_range': 0.3},
             {'publish_snr': False},
             {'publish_noise': False},
-            {'publish_velocity': True},
+            {'publish_velocity': False},
             {'latency_offset_ns': latency_offset_ns}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
@@ -194,7 +194,7 @@ def generate_launch_description():
             {'minimum_range': 0.3},
             {'publish_snr': False},
             {'publish_noise': False},
-            {'publish_velocity': True},
+            {'publish_velocity': False},
             {'latency_offset_ns': latency_offset_ns}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
@@ -219,7 +219,7 @@ def generate_launch_description():
             {'minimum_range': 0.3},
             {'publish_snr': False},
             {'publish_noise': False},
-            {'publish_velocity': True},
+            {'publish_velocity': False},
             {'latency_offset_ns': latency_offset_ns}
          ],
         arguments=['--ros-args', '--log-level', 'warn'],
@@ -232,7 +232,22 @@ def generate_launch_description():
     offboard_control = Node(
         package="spherical-radar-drone",
         executable="offboard_control",
-        parameters=[config]
+        parameters=[
+            {'max_decelration': 7.0}, 
+            {'max_x_vel': 10.0},
+            {'max_y_vel': 10.0},
+            {'max_z_vel_up': 3.0},
+            {'max_z_vel_down': 2.0},
+            {'max_yaw_rate': 0.785},
+            {'braking_safety_factor': 2.0},
+            {'side_detection_range': 5.0},
+            {'front_detection_range': 10.0},
+            {'tangential_rejection_scalar': 1.0},
+            {'path_publish_delta': 0.25},
+         ],
+        arguments=['--ros-args', '--log-level', 'warn'],
+        respawn=True,
+        emulate_tty=True
     )
 
     radar_pointcloud_combiner = Node(

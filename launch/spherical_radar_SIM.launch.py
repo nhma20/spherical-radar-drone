@@ -66,10 +66,22 @@ def generate_launch_description():
     offboard_control = Node(
         package="spherical-radar-drone",
         executable="offboard_control",
-        # parameters=[config]
-        # arguments=['--ros-args', '--log-level', 'warn'],
-        # output='screen',
-        # emulate_tty=True
+        parameters=[
+            {'max_decelration': 7.0}, 
+            {'max_x_vel': 10.0},
+            {'max_y_vel': 10.0},
+            {'max_z_vel_up': 3.0},
+            {'max_z_vel_down': 2.0},
+            {'max_yaw_rate': 0.785},
+            {'braking_safety_factor': 2.0},
+            {'side_detection_range': 5.0},
+            {'front_detection_range': 10.0},
+            {'tangential_rejection_scalar': 1.0},
+            {'path_publish_delta': 0.1},
+         ],
+        arguments=['--ros-args', '--log-level', 'warn'],
+        respawn=True,
+        emulate_tty=True
     )
 
     lidar_to_mmwave_front = Node(
@@ -143,8 +155,9 @@ def generate_launch_description():
         package="spherical-radar-drone",
         executable="radar_pointcloud_combiner",
         parameters=[
-            {'pointcloud_update_rate': 10},
+            {'pointcloud_update_rate': 10}, #10
             {'_enable_temporal_filter': False},
+            {'concatenate_capacity': 1},
             # {'temporal_filter_horizon': 5},
             # {'temporal_filter_radius': 1.0}
          ],

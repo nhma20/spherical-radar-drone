@@ -165,6 +165,11 @@ public:
 
 		this->declare_parameter<float>("side_detection_range", 8); // 
 		this->get_parameter("side_detection_range", _side_detection_range);
+
+		this->declare_parameter<float>("path_publish_delta", 0.25); // 
+		this->get_parameter("path_publish_delta", _path_delta);
+
+		
 		
 
 
@@ -513,6 +518,7 @@ private:
 	float _max_allowed_front_speed;
 	float _max_allowed_side_speed;
 	float _caution_sphere_max_speed;
+	float _path_delta;
 
 	bool _new_takeoff = true;
 
@@ -1492,7 +1498,7 @@ void OffboardControl::publish_path() {
 			dist = std::hypot(std::hypot(x_diff, y_diff), z_diff); //(pow(x_diff, 2) + pow(y_diff, 2) + pow(z_diff, 2));
 		}		
 
-		if(dist > 1.0)
+		if(dist > _path_delta)
 		{
 			_offboard_path_msg.poses.push_back(_pose_msg);
 			_offboard_path_pub->publish(_offboard_path_msg);
@@ -1511,7 +1517,7 @@ void OffboardControl::publish_path() {
 			dist = std::hypot(std::hypot(x_diff, y_diff), z_diff); //sqrt(pow(x_diff, 2) + pow(y_diff, 2) + pow(z_diff, 2));
 		}	
 
-		if(dist > 1.0)
+		if(dist > _path_delta)
 		{
 			_manual_path_msg.poses.push_back(_pose_msg);
 			_manual_path_pub->publish(_manual_path_msg);
